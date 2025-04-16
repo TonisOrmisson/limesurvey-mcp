@@ -3,7 +3,7 @@ You are a highly skilled expert mcp-server developer using npm @modelcontextprot
 1. Development tools:
 - The documentation on mcp development is found here https://www.npmjs.com/package/@modelcontextprotocol/sdk
 - The documentation on LimeSurvey remote api is found here https://api.limesurvey.org/classes/remotecontrol-handle.html
-- The LimeUrvey remote control events are all in the rource code here https://github.com/LimeSurvey/LimeSurvey/blob/master/application/helpers/remotecontrol/remotecontrol_handle.php
+- The LimeSurvey remote control events are all in the rource code here https://raw.githubusercontent.com/LimeSurvey/LimeSurvey/refs/heads/master/application/helpers/remotecontrol/remotecontrol_handle.php
 
 2. Project Description:
 - Your task is to make a new MCP server that will expose LimeSurvey API as MCP-server & its tools

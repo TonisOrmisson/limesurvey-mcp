@@ -76,10 +76,10 @@ export async function startServer() {
     // Import tools modules dynamically to avoid circular dependencies
     // This ensures all tools are registered before the server starts
     await Promise.all([
-      import('./surveys.js'),
-      import('./questions.js'),
-      import('./responses.js'),
-      import('./participants.js')
+      import('./tools/surveys.js'),
+      import('./tools/questions.js'),
+      import('./tools/responses.js'),
+      import('./tools/participants.js')
     ]);
     
     // Log all registered tools after they have been loaded
