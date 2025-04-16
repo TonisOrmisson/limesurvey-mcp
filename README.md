@@ -18,6 +18,7 @@ A Model Context Protocol (MCP) server that exposes LimeSurvey Remote API functio
   - [Question Management](#question-management)
   - [Response Management](#response-management)
   - [Participant Management](#participant-management)
+  - [Statistics Management](#statistics-management)
 - [Development](#development)
 - [License](#license)
 
@@ -267,6 +268,30 @@ Gets properties of a specific participant/token.
 
 **Returns**:
 - Object containing properties for the specified participant
+
+### Statistics Management
+
+#### exportStatistics
+
+Exports survey statistics in PDF, Excel, or HTML format with optional graphs.
+
+**Parameters**:
+- `surveyId`: The ID of the survey to export statistics for
+- `documentType`: Format of the export: 'pdf', 'xls', or 'html' - default: "pdf"
+- `language` (optional): Language for statistics export (default: survey's default language)
+- `includeGraphs`: Whether to include graphs in the export (only applicable for PDF) - default: false
+- `groupIds` (optional): Specific question group ID(s) to include in statistics, can be a single ID or array of IDs
+
+**Returns**:
+- Base64 encoded string containing the statistics file in the requested format
+
+**Example Usage**:
+```
+exportStatistics:
+  surveyId: "123456"
+  documentType: "pdf"
+  includeGraphs: true
+```
 
 ## Development
 

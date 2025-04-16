@@ -169,22 +169,28 @@ class LimeSurveyAPI {
   /**
    * Export responses for a survey
    * @param {number|string} surveyId - The survey ID
-   * @param {string} documentType - The document type (default: 'csv')
-   * @param {string} language - The language (optional)
-   * @param {string} completionStatus - The completion status (optional)
-   * @param {string} headingType - The heading type (optional)
-   * @param {string} responseType - The response type (optional)
-   * @param {Array} fields - The fields to export (optional)
-   * @returns {Promise<string>} - The exported data
+   * @param {string} documentType - The document type (pdf, csv, xls, doc, json, etc.)
+   * @param {string|null} language - Optional: The language code to use (default: survey's default language)
+   * @param {string} completionStatus - Optional: 'complete','incomplete' or 'all' - defaults to 'all'
+   * @param {string} headingType - Optional: 'code','full' or 'abbreviated' - defaults to 'code'
+   * @param {string} responseType - Optional: 'short' or 'long' - defaults to 'short'
+   * @param {number|null} fromResponseId - Optional: From response ID
+   * @param {number|null} toResponseId - Optional: To response ID
+   * @param {string[]|null} fields - Optional: Names of the fields to export
+   * @param {Record<string, any>|null} additionalOptions - Optional: Additional options for export
+   * @returns {Promise<string>} - Base64 encoded string containing the exported data
    */
   async exportResponses(
     surveyId: number | string, 
-    documentType: string = 'csv', 
+    documentType: string,
     language: string | null = null, 
     completionStatus: string = 'all', 
     headingType: string = 'code', 
-    responseType: string = 'short', 
-    fields: string[] | null = null
+    responseType: string = 'short',
+    fromResponseId: number | null = null,
+    toResponseId: number | null = null,
+    fields: string[] | null = null,
+    additionalOptions: Record<string, any> | null = null
   ): Promise<string> {
     const key = await this.getSessionKey();
     return this.request('export_responses', [
@@ -194,8 +200,38 @@ class LimeSurveyAPI {
       language, 
       completionStatus, 
       headingType, 
-      responseType, 
-      fields
+      responseType,
+      fromResponseId,
+      toResponseId,
+      fields,
+      additionalOptions
+    ]);
+  }
+
+  /**
+   * Export survey statistics
+   * @param {number|string} surveyId - The survey ID
+   * @param {string} documentType - The document type: 'pdf', 'xls', or 'html' (default: 'pdf')
+   * @param {string|null} language - Optional: The language of the survey to use (default: survey default language)
+   * @param {string} graph - Optional: Create graph option (default: '0' for no)
+   * @param {number[]|number|null} groupIds - Optional: Array or integer containing the groups to generate statistics from
+   * @returns {Promise<string>} - Base64 encoded string with the statistics file
+   */
+  async exportStatistics(
+    surveyId: number | string,
+    documentType: 'pdf' | 'xls' | 'html' = 'pdf',
+    language: string | null = null,
+    graph: '0' | '1' = '0',
+    groupIds: number[] | number | null = null
+  ): Promise<string> {
+    const key = await this.getSessionKey();
+    return this.request('export_statistics', [
+      key,
+      surveyId,
+      documentType,
+      language,
+      graph,
+      groupIds
     ]);
   }
 

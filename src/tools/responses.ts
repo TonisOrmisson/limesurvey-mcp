@@ -44,12 +44,12 @@ server.tool(
 );
 
 /**
- * Tool to export responses from a survey
+ * Tool to export responses from a survey with base64 encoding
  * 
  * Corresponds to the export_responses method in LimeSurvey Remote API
  * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_export_responses
  * 
- * Returns response data in the specified format
+ * Returns response data in the specified format as a base64-encoded string or decoded content
  */
 server.tool(
   "exportResponses",
@@ -58,12 +58,17 @@ server.tool(
     surveyId: z.string().describe("The ID of the survey"),
     documentType: z.string().default("csv").describe("Format of the export (csv, xls, pdf, html, json)"),
     language: z.string().optional().describe("Optional: Language for response export"),
-    completionStatus: z.string().default("all").describe("Filter by completion status: 'complete', 'incomplete' or 'all'"),
-    headingType: z.string().default("code").describe("Type of headings: 'code', 'full' or 'abbreviated'"),
-    responseType: z.string().default("short").describe("Response type: 'short' or 'long'"),
-    fields: z.array(z.string()).optional().describe("Optional: Array of field names to export")
+    completionStatus: z.enum(['complete', 'incomplete', 'all']).default('all').describe("Filter by completion status"),
+    headingType: z.enum(['code', 'full', 'abbreviated']).default('code').describe("Type of headings"),
+    responseType: z.enum(['short', 'long']).default('short').describe("Response type"),
+    fromResponseId: z.number().optional().describe("Optional: Export from this response ID"),
+    toResponseId: z.number().optional().describe("Optional: Export up to this response ID"),
+    fields: z.array(z.string()).optional().describe("Optional: Array of field names to export"),
+    additionalOptions: z.record(z.any()).optional().describe("Optional: Additional options for export formatting"),
+    decodeOutput: z.boolean().default(true).describe("Whether to decode the base64 output for text formats")
   },
-  async ({ surveyId, documentType, language, completionStatus, headingType, responseType, fields }) => {
+  async ({ surveyId, documentType, language, completionStatus, headingType, responseType, 
+           fromResponseId, toResponseId, fields, additionalOptions, decodeOutput }) => {
     try {
       const exportData = await limesurveyAPI.exportResponses(
         surveyId, 
@@ -71,39 +76,83 @@ server.tool(
         language || null, 
         completionStatus, 
         headingType, 
-        responseType, 
-        fields || null
+        responseType,
+        fromResponseId || null,
+        toResponseId || null,
+        fields || null,
+        additionalOptions || null
       );
       
-      // For CSV, JSON and other text formats, show a sample of the data
-      let preview = "Data not available for preview";
-      if (typeof exportData === 'string') {
-        if (documentType === 'json') {
-          try {
-            const jsonData = JSON.parse(exportData);
-            preview = JSON.stringify(jsonData, null, 2).substring(0, 1000) + 
-              (exportData.length > 1000 ? '...' : '');
-          } catch (e) {
-            preview = exportData.substring(0, 1000) + 
-              (exportData.length > 1000 ? '...' : '');
+      // Check if we need to decode the base64 data
+      let resultContent;
+      let previewText = '';
+      
+      // Binary formats should remain base64 encoded, text formats can be decoded
+      const textFormats = ['csv', 'json', 'txt', 'html'];
+      const isBinaryFormat = !textFormats.includes(documentType.toLowerCase());
+      
+      if (decodeOutput && !isBinaryFormat && exportData) {
+        try {
+          // Decode base64 data for text formats
+          const decodedData = Buffer.from(exportData, 'base64').toString('utf-8');
+          
+          // Create a preview of the data
+          if (documentType.toLowerCase() === 'json') {
+            try {
+              const jsonData = JSON.parse(decodedData);
+              previewText = JSON.stringify(jsonData, null, 2).substring(0, 1000);
+            } catch (e) {
+              previewText = decodedData.substring(0, 1000);
+            }
+          } else {
+            previewText = decodedData.substring(0, 1000);
           }
-        } else {
-          preview = exportData.substring(0, 1000) + 
-            (exportData.length > 1000 ? '...' : '');
+          
+          // Add ellipsis if data was truncated
+          if (decodedData.length > 1000) {
+            previewText += '\n...[truncated]';
+          }
+          
+          resultContent = [
+            { 
+              type: "text", 
+              text: `Responses for survey ID ${surveyId} exported successfully as ${documentType}` 
+            },
+            {
+              type: "text", 
+              text: `Preview of exported data:\n\n${previewText}`
+            }
+          ];
+        } catch (e) {
+          // Fall back to base64 if decoding fails
+          const sizeKB = Math.round(exportData.length * 0.75 / 1024);
+          resultContent = [
+            { 
+              type: "text", 
+              text: `Responses for survey ID ${surveyId} exported successfully as ${documentType} (base64 encoded, ~${sizeKB} KB)`
+            },
+            {
+              type: "text", 
+              text: `Failed to decode base64 data: ${e instanceof Error ? e.message : String(e)}`
+            }
+          ];
         }
+      } else {
+        // Return base64 encoded data info for binary formats or when decoding is disabled
+        const sizeKB = Math.round(exportData.length * 0.75 / 1024);
+        resultContent = [
+          { 
+            type: "text", 
+            text: `Responses for survey ID ${surveyId} exported successfully as ${documentType} (base64 encoded, ~${sizeKB} KB)`
+          }
+        ];
       }
       
       return {
-        content: [
-          { 
-            type: "text", 
-            text: `Responses for survey ID ${surveyId} exported successfully as ${documentType}` 
-          },
-          {
-            type: "text", 
-            text: `Preview of exported data:\n\n${preview}`
-          }
-        ]
+        content: resultContent.map(item => ({
+          type: "text",
+          text: item.text
+        }))
       };
     } catch (error: any) {
       return {

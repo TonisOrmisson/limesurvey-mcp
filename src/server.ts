@@ -79,7 +79,8 @@ export async function startServer() {
       import('./tools/surveys.js'),
       import('./tools/questions.js'),
       import('./tools/responses.js'),
-      import('./tools/participants.js')
+      import('./tools/participants.js'),
+      import('./tools/statistics.js')  // Added the new statistics module
     ]);
     
     // Log all registered tools after they have been loaded

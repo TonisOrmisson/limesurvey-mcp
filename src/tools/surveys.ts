@@ -2,6 +2,107 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 
+
+
+
+/**
+ * Tool to find surveys by ID or name (including partial matches)
+ * 
+ * This tool uses the list_surveys method in the LimeSurvey Remote API 
+ * and then filters and sorts the results based on the search criteria
+ * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_list_surveys
+ * 
+ * Returns an array of matching surveys sorted by creation date (newest first)
+ */
+server.tool(
+    "findSurvey",
+    "Finds surveys by ID or name (partial matches allowed), sorted by newest first",
+    {
+      searchTerm: z.string().describe("Survey ID or partial/full survey name to search for"),
+      limit: z.number().optional().default(10).describe("Maximum number of results to return")
+    },
+    async ({ searchTerm, limit }) => {
+      try {
+        // Get all surveys
+        const allSurveys = await limesurveyAPI.listSurveys();
+        
+        if (!Array.isArray(allSurveys) || allSurveys.length === 0) {
+          return {
+            content: [{ 
+              type: "text", 
+              text: "No surveys found in the system." 
+            }]
+          };
+        }
+        
+        // Filter surveys by ID or title (case-insensitive)
+        const searchTermLower = searchTerm.toLowerCase();
+        let matchedSurveys = allSurveys.filter(survey => {
+          // Match by ID (exact match)
+          if (survey.sid && survey.sid.toString() === searchTerm) {
+            return true;
+          }
+          
+          // Match by title (contains, case-insensitive)
+          if (survey.surveyls_title && 
+              survey.surveyls_title.toLowerCase().includes(searchTermLower)) {
+            return true;
+          }
+          
+          return false;
+        });
+        
+        // Sort by creation date (newest first)
+        // LimeSurvey typically has 'created' or 'startdate' fields
+        matchedSurveys.sort((a, b) => {
+          // Try different date fields that might be present
+          const dateA = a.created || a.startdate || a.datecreated || '0';
+          const dateB = b.created || b.startdate || b.datecreated || '0';
+          
+          // Sort in reverse order (newest first)
+          return dateB.localeCompare(dateA);
+        });
+        
+        // Apply limit if specified
+        if (limit && limit > 0) {
+          matchedSurveys = matchedSurveys.slice(0, limit);
+        }
+        
+        // Check if we found any matches
+        if (matchedSurveys.length === 0) {
+          return {
+            content: [{ 
+              type: "text", 
+              text: `No surveys found matching '${searchTerm}'.` 
+            }]
+          };
+        }
+        
+        return {
+          content: [
+            { 
+              type: "text", 
+              text: `Found ${matchedSurveys.length} survey(s) matching '${searchTerm}' (showing newest first):` 
+            },
+            {
+              type: "text", 
+              text: JSON.stringify(matchedSurveys, null, 2)
+            }
+          ]
+        };
+      } catch (error: any) {
+        return {
+          content: [{ 
+            type: "text", 
+            text: `Error finding surveys: ${error?.message || 'Unknown error'}` 
+          }],
+          isError: true
+        };
+      }
+    }
+  );
+
+  
 /**
  * Tool to list all surveys in LimeSurvey
  * 
