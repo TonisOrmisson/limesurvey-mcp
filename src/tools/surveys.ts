@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { server } from './server.js';
-import limesurveyAPI from './services/limesurvey-api.js';
+import { server } from '../server.js';
+import limesurveyAPI from '../services/limesurvey-api.js';
 
 /**
  * Tool to list all surveys in LimeSurvey
@@ -266,3 +266,5 @@ server.tool(
     }
   }
 );
+
+console.log("Surveys tools registered!");
