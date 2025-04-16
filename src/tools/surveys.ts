@@ -368,4 +368,64 @@ server.tool(
   }
 );
 
+/**
+ * Tool to get quota information for a survey
+ * 
+ * Corresponds to the get_quota method in LimeSurvey Remote API
+ * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_get_quota
+ * 
+ * Returns quota information including quotas, quota members, and quota language settings
+ */
+server.tool(
+  "getQuotaInformation",
+  "Gets quota information for a survey",
+  {
+    surveyId: z.string().describe("The ID of the survey"),
+    quotaId: z.union([z.string(), z.number()]).optional().describe("Optional: Specific quota ID (if null, returns all quotas)"),
+    language: z.string().optional().describe("Optional: Language for quota descriptions")
+  },
+  async ({ surveyId, quotaId, language }) => {
+    try {
+      const result = await limesurveyAPI.getQuotas(surveyId, quotaId || null, language || null);
+      
+      // Check if we got any quota information
+      if (!result || (Array.isArray(result) && result.length === 0) || Object.keys(result).length === 0) {
+        return {
+          content: [
+            { 
+              type: "text", 
+              text: quotaId 
+                ? `No quota found with ID ${quotaId} for survey ${surveyId}` 
+                : `No quotas found for survey ${surveyId}`
+            }
+          ]
+        };
+      }
+      
+      return {
+        content: [
+          { 
+            type: "text", 
+            text: quotaId 
+              ? `Quota information for quota ID ${quotaId} retrieved successfully`
+              : `All quota information for survey ID ${surveyId} retrieved successfully`
+          },
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    } catch (error: any) {
+      return {
+        content: [{ 
+          type: "text", 
+          text: `Error retrieving quota information: ${error?.message || 'Unknown error'}` 
+        }],
+        isError: true
+      };
+    }
+  }
+);
+
 console.log("Surveys tools registered!");
