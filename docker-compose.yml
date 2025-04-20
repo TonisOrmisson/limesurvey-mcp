@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  mcp-limesurvey:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-limesurvey
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # Mount the application code directory
+      - .:/app
+      # Mount for persistent logs
+      - mcp_logs:/app/logs
+      # Exclude node_modules from the mount to use the container's node_modules
+      - /app/node_modules
+    environment:
+      - LIMESURVEY_API_URL=${LIMESURVEY_API_URL}
+      - LIMESURVEY_USERNAME=${LIMESURVEY_USERNAME}
+      - LIMESURVEY_PASSWORD=${LIMESURVEY_PASSWORD}
+      - PORT=3000
+      - READONLY_MODE=${READONLY_MODE:-false}
+    # Healthcheck to verify the service is running properly
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - mcp-network
+
+# Define persistent volumes
+volumes:
+  mcp_logs:
+    driver: local
+
+# Define networks
+networks:
+  mcp-network:
+    driver: bridge
