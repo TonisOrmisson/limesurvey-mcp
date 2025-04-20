@@ -4,14 +4,21 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import express, { Request, Response } from "express";
 import dotenv from 'dotenv';
 import limesurveyAPI from './services/limesurvey-api.js';
+import path from 'path';
+import fs from 'fs';
 
 // Load environment variables
 dotenv.config();
 
+// Check if readonly mode is enabled
+const isReadOnlyMode = process.env.READONLY_MODE === 'true';
+
 // Create an MCP server for LimeSurvey
 export const server = new McpServer({
   name: "LimeSurvey MCP",
-  description: "MCP server that exposes LimeSurvey API functionality",
+  description: isReadOnlyMode 
+    ? "MCP server that exposes LimeSurvey API read-only functionality" 
+    : "MCP server that exposes LimeSurvey API functionality",
   version: "1.0.0"
 });
 
@@ -43,6 +50,20 @@ export function logRegisteredTools() {
   console.log('===========================\n');
 }
 
+// Define read-only and write tool modules
+const readOnlyModules = [
+  './tools/surveys.js',
+  './tools/questions.js',
+  './tools/statistics.js',
+];
+
+const writeModules = [
+  './tools/participants.js',
+  './tools/responses.js',
+  './tools/survey-management.js',
+];
+
+
 export async function startServer() {
   // Create Express app for HTTP transport
   const app = express();
@@ -70,22 +91,26 @@ export async function startServer() {
     }
   });
   
-  console.log(`Starting LimeSurvey MCP server`);
+  // Log server mode
+  if (isReadOnlyMode) {
+    console.log(`Starting LimeSurvey MCP server in READ-ONLY mode`);
+  } else {
+    console.log(`Starting LimeSurvey MCP server with FULL access`);
+  }
   
   try {
     // Import tools modules dynamically to avoid circular dependencies
     // This ensures all tools are registered before the server starts
-    await Promise.all([
-      import('./tools/surveys.js'),
-      import('./tools/questions.js'),
-      import('./tools/responses.js'),
-      import('./tools/participants.js'),
-      import('./tools/statistics.js'),
-      import('./tools/survey-management.js'),
-      import('./tools/group-management.js'),
-      import('./tools/response-management.js'),
-      import('./tools/file-management.js'),
-    ]);
+    const modulesToImport = [...readOnlyModules]; // Always import read-only modules
+    
+    
+    // Only import write modules if not in read-only mode
+    if (!isReadOnlyMode) {
+      modulesToImport.push(...writeModules);
+    }
+    
+    // Import all selected modules
+    await Promise.all(modulesToImport.map(module => import(module)));
     
     // Log all registered tools after they have been loaded
     logRegisteredTools();

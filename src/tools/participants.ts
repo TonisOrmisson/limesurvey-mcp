@@ -159,4 +159,164 @@ server.tool(
   }
 );
 
+/**
+ * Tool to add multiple participants to a survey at once
+ * 
+ * Corresponds to the add_participants method in LimeSurvey Remote API
+ * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_add_participants
+ * 
+ * Returns information about the added participants
+ */
+server.tool(
+    "addMultipleParticipants",
+    "Adds multiple participants to a survey in one operation",
+    {
+      surveyId: z.string().describe("The ID of the survey"),
+      participants: z.array(z.object({
+        email: z.string().email().describe("Participant email address"),
+        firstname: z.string().optional().describe("First name"),
+        lastname: z.string().optional().describe("Last name"),
+        language: z.string().optional().describe("Language code"),
+        usesleft: z.number().optional().describe("Number of times the participant can access the survey"),
+        validfrom: z.string().optional().describe("Valid from date (YYYY-MM-DD HH:mm:ss)"),
+        validuntil: z.string().optional().describe("Valid until date (YYYY-MM-DD HH:mm:ss)")
+      })).describe("Array of participant data objects"),
+      createToken: z.boolean().default(true).describe("Whether to create tokens (default: true)")
+    },
+    async ({ surveyId, participants, createToken }) => {
+      try {
+        const result = await limesurveyAPI.addParticipants(surveyId, participants, createToken);
+        return {
+          content: [
+            { 
+              type: "text", 
+              text: `${result.length} participants added to survey ID ${surveyId} successfully` 
+            },
+            {
+              type: "text", 
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (error: any) {
+        return {
+          content: [{ 
+            type: "text", 
+            text: `Error adding participants: ${error?.message || 'Unknown error'}` 
+          }],
+          isError: true
+        };
+      }
+    }
+  );
+  
+  /**
+   * Tool to list survey participants with advanced filtering options
+   * 
+   * Corresponds to the list_participants method in LimeSurvey Remote API with additional parameters
+   * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_list_participants
+   * 
+   * Lists participants with pagination and filtering options
+   */
+  server.tool(
+    "listFilteredParticipants",
+    "Lists survey participants with advanced filtering options",
+    {
+      surveyId: z.string().describe("The ID of the survey"),
+      start: z.number().default(0).describe("Starting participant index"),
+      limit: z.number().default(10).describe("Number of participants to return"),
+      unused: z.boolean().default(false).describe("Only show unused tokens"),
+      attributes: z.array(z.string()).optional().describe("Optional: Array of attribute names to include"),
+      conditions: z.record(z.any()).optional().describe("Optional: Filter conditions (field name as key, value to filter by as value)")
+    },
+    async ({ surveyId, start, limit, unused, attributes, conditions }) => {
+      try {
+        const participants = await limesurveyAPI.listParticipants(
+          surveyId, 
+          start, 
+          limit, 
+          unused, 
+          attributes || false,
+          conditions || {}
+        );
+        
+        const countParticipants = Array.isArray(participants) ? participants.length : 0;
+        
+        return {
+          content: [
+            { 
+              type: "text", 
+              text: `Retrieved ${countParticipants} participants for survey ${surveyId}` 
+            },
+            {
+              type: "text", 
+              text: JSON.stringify(participants, null, 2)
+            }
+          ]
+        };
+      } catch (error: any) {
+        return {
+          content: [{ 
+            type: "text", 
+            text: `Error listing participants: ${error?.message || 'Unknown error'}` 
+          }],
+          isError: true
+        };
+      }
+    }
+  );
+  
+  /**
+   * Tool to delete one or more participants from a survey
+   * 
+   * Corresponds to the delete_participants method in LimeSurvey Remote API
+   * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_delete_participants
+   * 
+   * Returns the status of the delete operation
+   */
+  server.tool(
+    "deleteParticipants",
+    "Deletes one or more participants from a survey",
+    {
+      surveyId: z.string().describe("The ID of the survey"),
+      tokens: z.array(z.string()).describe("Array of token IDs to delete"),
+      confirmDeletion: z.literal(true).describe("Confirmation that you want to delete the participants (must be true)")
+    },
+    async ({ surveyId, tokens, confirmDeletion }) => {
+      if (!confirmDeletion) {
+        return {
+          content: [{ 
+            type: "text", 
+            text: "You must confirm deletion by setting confirmDeletion to true" 
+          }],
+          isError: true
+        };
+      }
+      
+      try {
+        const result = await limesurveyAPI.deleteParticipants(surveyId, tokens);
+        return {
+          content: [
+            { 
+              type: "text", 
+              text: `${tokens.length} participants deleted from survey ${surveyId}` 
+            },
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (error: any) {
+        return {
+          content: [{ 
+            type: "text", 
+            text: `Error deleting participants: ${error?.message || 'Unknown error'}` 
+          }],
+          isError: true
+        };
+      }
+    }
+  );
+  
 console.log("Participants tools registered!");
