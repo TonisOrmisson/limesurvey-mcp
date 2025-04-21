@@ -7,6 +7,7 @@ yarn-error.log
 # Built output
 dist/
 build/
+logs/
 
 # OS specific files
 Thumbs.db
