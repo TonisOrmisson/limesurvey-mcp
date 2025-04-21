@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
+import { logger } from '../utils/logger.js';
 
 
 
@@ -22,11 +23,13 @@ server.tool(
       limit: z.number().optional().default(10).describe("Maximum number of results to return")
     },
     async ({ searchTerm, limit }) => {
+      logger.info('Finding surveys', { searchTerm, limit });
       try {
         // Get all surveys
         const allSurveys = await limesurveyAPI.listSurveys();
         
         if (!Array.isArray(allSurveys) || allSurveys.length === 0) {
+          logger.info('No surveys found in system');
           return {
             content: [{ 
               type: "text", 
@@ -70,6 +73,7 @@ server.tool(
         
         // Check if we found any matches
         if (matchedSurveys.length === 0) {
+          logger.info('No matching surveys found', { searchTerm });
           return {
             content: [{ 
               type: "text", 
@@ -77,6 +81,11 @@ server.tool(
             }]
           };
         }
+        
+        logger.info('Successfully found matching surveys', { 
+          searchTerm, 
+          matchCount: matchedSurveys.length 
+        });
         
         return {
           content: [
@@ -91,6 +100,10 @@ server.tool(
           ]
         };
       } catch (error: any) {
+        logger.error('Failed to find surveys', { 
+          searchTerm, 
+          error: error?.message 
+        });
         return {
           content: [{ 
             type: "text", 
@@ -119,8 +132,12 @@ server.tool(
   "listSurveys", 
   "Lists all surveys that the authenticated user has permission to access",
   async () => {
+    logger.info('Listing all surveys');
     try {
       const surveys = await limesurveyAPI.listSurveys();
+      logger.info('Successfully retrieved survey list', { 
+        count: Array.isArray(surveys) ? surveys.length : 0 
+      });
       return {
         content: [
           { 
@@ -134,6 +151,7 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to list surveys', { error: error?.message });
       return {
         content: [{ 
           type: "text", 
@@ -162,8 +180,10 @@ server.tool(
     surveyId: z.string().describe("The ID of the survey to get properties for")
   },
   async ({ surveyId }) => {
+    logger.info('Getting survey properties', { surveyId });
     try {
       const properties = await limesurveyAPI.getSurveyProperties(surveyId);
+      logger.info('Successfully retrieved survey properties', { surveyId });
       return {
         content: [
           { 
@@ -177,6 +197,10 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to get survey properties', { 
+        surveyId, 
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -203,8 +227,10 @@ server.tool(
     surveyId: z.string().describe("The ID of the survey to activate")
   },
   async ({ surveyId }) => {
+    logger.info('Activating survey', { surveyId });
     try {
       const result = await limesurveyAPI.activateSurvey(surveyId);
+      logger.info('Successfully activated survey', { surveyId });
       return {
         content: [
           { 
@@ -218,6 +244,10 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to activate survey', { 
+        surveyId, 
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -245,12 +275,17 @@ server.tool(
     language: z.string().describe("The language code")
   },
   async ({ surveyId, language }) => {
+    logger.info('Getting survey language properties', { surveyId, language });
     try {
       const key = await limesurveyAPI.getSessionKey();
       const properties = await limesurveyAPI.request(
         'get_language_properties', 
         [key, surveyId, language]
       );
+      logger.info('Successfully retrieved survey language properties', { 
+        surveyId, 
+        language 
+      });
       return {
         content: [
           { 
@@ -264,6 +299,11 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to get survey language properties', { 
+        surveyId, 
+        language, 
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -287,6 +327,7 @@ server.tool(
   "getAvailableLanguages",
   "Gets available languages in the LimeSurvey installation",
   async () => {
+    logger.info('Getting available languages');
     try {
       const key = await limesurveyAPI.getSessionKey();
       const settings = await limesurveyAPI.request(
@@ -297,10 +338,14 @@ server.tool(
       let languages: string[] = [];
       if (settings?.availablelanguages) {
         try {
-          // The setting is returned as a JSON string
           languages = JSON.parse(settings.availablelanguages);
+          logger.info('Successfully parsed available languages', { 
+            languageCount: languages.length 
+          });
         } catch (e) {
-          console.error('Failed to parse available languages', e);
+          logger.error('Failed to parse available languages', { 
+            error: e instanceof Error ? e.message : String(e) 
+          });
         }
       }
       
@@ -317,6 +362,9 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to get available languages', { 
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -343,12 +391,17 @@ server.tool(
     surveyId: z.string().describe("The ID of the survey")
   },
   async ({ surveyId }) => {
+    logger.info('Getting survey languages', { surveyId });
     try {
       const key = await limesurveyAPI.getSessionKey();
       const languages = await limesurveyAPI.request(
         'get_survey_languages', 
         [key, surveyId]
       );
+      logger.info('Successfully retrieved survey languages', { 
+        surveyId, 
+        languageCount: languages.length 
+      });
       return {
         content: [
           { 
@@ -358,6 +411,10 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to get survey languages', { 
+        surveyId, 
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -386,11 +443,20 @@ server.tool(
     language: z.string().optional().describe("Optional: Language for quota descriptions")
   },
   async ({ surveyId, quotaId, language }) => {
+    logger.info('Getting quota information', { 
+      surveyId, 
+      quotaId: quotaId || 'all', 
+      language 
+    });
     try {
       const result = await limesurveyAPI.getQuotas(surveyId, quotaId || null, language || null);
       
       // Check if we got any quota information
       if (!result || (Array.isArray(result) && result.length === 0) || Object.keys(result).length === 0) {
+        logger.info('No quota information found', { 
+          surveyId, 
+          quotaId: quotaId || 'all' 
+        });
         return {
           content: [
             { 
@@ -402,6 +468,12 @@ server.tool(
           ]
         };
       }
+      
+      logger.info('Successfully retrieved quota information', { 
+        surveyId, 
+        quotaId: quotaId || 'all',
+        quotaCount: Array.isArray(result) ? result.length : 1
+      });
       
       return {
         content: [
@@ -418,6 +490,11 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to get quota information', { 
+        surveyId, 
+        quotaId: quotaId || 'all',
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -429,4 +506,4 @@ server.tool(
   }
 );
 
-console.log("Surveys tools registered!");
+logger.info("Surveys tools registered!");

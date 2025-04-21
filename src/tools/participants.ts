@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Tool to add a participant to a survey
@@ -24,6 +25,7 @@ server.tool(
     validUntil: z.string().optional().describe("Optional: Valid until date (YYYY-MM-DD HH:mm:ss)")
   },
   async ({ surveyId, email, firstName, lastName, language, usesLeft, validFrom, validUntil }) => {
+    logger.info('Adding participant to survey', { surveyId, email });
     try {
       // Create participant data object
       const participantData: Record<string, any> = {
@@ -39,6 +41,7 @@ server.tool(
       if (validUntil) participantData.validuntil = validUntil;
       
       const result = await limesurveyAPI.addParticipant(surveyId, participantData);
+      logger.info('Successfully added participant', { surveyId, email, token: result?.token });
       return {
         content: [
           { 
@@ -52,6 +55,7 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to add participant', { surveyId, email, error: error?.message });
       return {
         content: [{ 
           type: "text", 
@@ -82,12 +86,17 @@ server.tool(
     attributes: z.array(z.string()).optional().describe("Optional: Array of attribute names to include")
   },
   async ({ surveyId, start, limit, unused, attributes }) => {
+    logger.info('Listing participants', { surveyId, start, limit, unused });
     try {
       const key = await limesurveyAPI.getSessionKey();
       const participants = await limesurveyAPI.request(
         'list_participants', 
         [key, surveyId, start, limit, unused, attributes || false]
       );
+      logger.info('Successfully retrieved participants', { 
+        surveyId, 
+        count: Array.isArray(participants) ? participants.length : 0 
+      });
       return {
         content: [
           { 
@@ -101,6 +110,7 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to list participants', { surveyId, error: error?.message });
       return {
         content: [{ 
           type: "text", 
@@ -129,12 +139,14 @@ server.tool(
     attributes: z.array(z.string()).optional().describe("Optional: Array of attribute names to include")
   },
   async ({ surveyId, tokenId, attributes }) => {
+    logger.info('Getting participant properties', { surveyId, tokenId });
     try {
       const key = await limesurveyAPI.getSessionKey();
       const properties = await limesurveyAPI.request(
         'get_participant_properties', 
         [key, surveyId, tokenId, attributes || null]
       );
+      logger.info('Successfully retrieved participant properties', { surveyId, tokenId });
       return {
         content: [
           { 
@@ -148,6 +160,7 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to get participant properties', { surveyId, tokenId, error: error?.message });
       return {
         content: [{ 
           type: "text", 
@@ -184,8 +197,17 @@ server.tool(
       createToken: z.boolean().default(true).describe("Whether to create tokens (default: true)")
     },
     async ({ surveyId, participants, createToken }) => {
+      logger.info('Adding multiple participants', { 
+        surveyId, 
+        participantCount: participants.length,
+        createToken 
+      });
       try {
         const result = await limesurveyAPI.addParticipants(surveyId, participants, createToken);
+        logger.info('Successfully added multiple participants', { 
+          surveyId, 
+          addedCount: result.length 
+        });
         return {
           content: [
             { 
@@ -199,6 +221,11 @@ server.tool(
           ]
         };
       } catch (error: any) {
+        logger.error('Failed to add multiple participants', { 
+          surveyId, 
+          participantCount: participants.length,
+          error: error?.message 
+        });
         return {
           content: [{ 
             type: "text", 
@@ -230,6 +257,13 @@ server.tool(
       conditions: z.record(z.any()).optional().describe("Optional: Filter conditions (field name as key, value to filter by as value)")
     },
     async ({ surveyId, start, limit, unused, attributes, conditions }) => {
+      logger.info('Listing filtered participants', { 
+        surveyId, 
+        start, 
+        limit, 
+        unused,
+        conditions 
+      });
       try {
         const participants = await limesurveyAPI.listParticipants(
           surveyId, 
@@ -241,6 +275,10 @@ server.tool(
         );
         
         const countParticipants = Array.isArray(participants) ? participants.length : 0;
+        logger.info('Successfully retrieved filtered participants', { 
+          surveyId, 
+          count: countParticipants 
+        });
         
         return {
           content: [
@@ -255,6 +293,10 @@ server.tool(
           ]
         };
       } catch (error: any) {
+        logger.error('Failed to list filtered participants', { 
+          surveyId, 
+          error: error?.message 
+        });
         return {
           content: [{ 
             type: "text", 
@@ -283,7 +325,13 @@ server.tool(
       confirmDeletion: z.literal(true).describe("Confirmation that you want to delete the participants (must be true)")
     },
     async ({ surveyId, tokens, confirmDeletion }) => {
+      logger.info('Attempting to delete participants', { 
+        surveyId, 
+        tokenCount: tokens.length 
+      });
+      
       if (!confirmDeletion) {
+        logger.warn('Deletion not confirmed', { surveyId, tokenCount: tokens.length });
         return {
           content: [{ 
             type: "text", 
@@ -295,6 +343,10 @@ server.tool(
       
       try {
         const result = await limesurveyAPI.deleteParticipants(surveyId, tokens);
+        logger.info('Successfully deleted participants', { 
+          surveyId, 
+          tokenCount: tokens.length 
+        });
         return {
           content: [
             { 
@@ -308,6 +360,11 @@ server.tool(
           ]
         };
       } catch (error: any) {
+        logger.error('Failed to delete participants', { 
+          surveyId, 
+          tokenCount: tokens.length,
+          error: error?.message 
+        });
         return {
           content: [{ 
             type: "text", 
@@ -319,4 +376,4 @@ server.tool(
     }
   );
   
-console.log("Participants tools registered!");
+logger.info("Participants tools registered!");

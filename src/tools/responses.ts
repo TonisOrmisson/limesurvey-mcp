@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Tool to get response count summary for a survey
@@ -17,8 +18,13 @@ server.tool(
     surveyId: z.string().describe("The ID of the survey")
   },
   async ({ surveyId }) => {
+    logger.info('Getting response summary', { surveyId });
     try {
       const summary = await limesurveyAPI.getResponseCount(surveyId);
+      logger.info('Successfully retrieved response summary', { 
+        surveyId,
+        responseCount: summary?.count || 0
+      });
       return {
         content: [
           { 
@@ -32,6 +38,10 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to get response summary', { 
+        surveyId, 
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -69,6 +79,15 @@ server.tool(
   },
   async ({ surveyId, documentType, language, completionStatus, headingType, responseType, 
            fromResponseId, toResponseId, fields, additionalOptions, decodeOutput }) => {
+    logger.info('Exporting responses', { 
+      surveyId, 
+      documentType,
+      language: language || 'default',
+      completionStatus,
+      responseType,
+      fromResponseId: fromResponseId || 'start',
+      toResponseId: toResponseId || 'end'
+    });
     try {
       const exportData = await limesurveyAPI.exportResponses(
         surveyId, 
@@ -113,6 +132,12 @@ server.tool(
             previewText += '\n...[truncated]';
           }
           
+          logger.info('Successfully exported and decoded responses', { 
+            surveyId,
+            documentType,
+            dataSize: decodedData.length
+          });
+          
           resultContent = [
             { 
               type: "text", 
@@ -126,6 +151,12 @@ server.tool(
         } catch (e) {
           // Fall back to base64 if decoding fails
           const sizeKB = Math.round(exportData.length * 0.75 / 1024);
+          logger.warn('Failed to decode exported responses', { 
+            surveyId,
+            documentType,
+            error: e instanceof Error ? e.message : String(e),
+            sizeKB
+          });
           resultContent = [
             { 
               type: "text", 
@@ -140,6 +171,11 @@ server.tool(
       } else {
         // Return base64 encoded data info for binary formats or when decoding is disabled
         const sizeKB = Math.round(exportData.length * 0.75 / 1024);
+        logger.info('Successfully exported responses (base64 encoded)', { 
+          surveyId,
+          documentType,
+          sizeKB
+        });
         resultContent = [
           { 
             type: "text", 
@@ -155,6 +191,11 @@ server.tool(
         }))
       };
     } catch (error: any) {
+      logger.error('Failed to export responses', { 
+        surveyId,
+        documentType,
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -184,12 +225,22 @@ server.tool(
     attributes: z.array(z.string()).optional().describe("Optional: Array of attribute names to include")
   },
   async ({ surveyId, start, limit, attributes }) => {
+    logger.info('Listing responses', { 
+      surveyId, 
+      start, 
+      limit,
+      attributeCount: attributes?.length || 0
+    });
     try {
       const key = await limesurveyAPI.getSessionKey();
       const responses = await limesurveyAPI.request(
         'list_responses', 
         [key, surveyId, start, limit, false, attributes || null]
       );
+      logger.info('Successfully retrieved responses', { 
+        surveyId,
+        responseCount: Array.isArray(responses) ? responses.length : 0
+      });
       return {
         content: [
           { 
@@ -203,6 +254,10 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to list responses', { 
+        surveyId,
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -214,4 +269,4 @@ server.tool(
   }
 );
 
-console.log("Responses tools registered!");
+logger.info("Responses tools registered!");

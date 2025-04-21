@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Tool to list all questions for a survey in LimeSurvey
@@ -19,8 +20,17 @@ server.tool(
     language: z.string().optional().describe("Optional: Language for question texts")
   },
   async ({ surveyId, groupId, language }) => {
+    logger.info('Listing questions', { 
+      surveyId, 
+      groupId: groupId || 'all',
+      language: language || 'default'
+    });
     try {
       const questions = await limesurveyAPI.listQuestions(surveyId, groupId || null, language || null);
+      logger.info('Successfully retrieved questions', { 
+        surveyId, 
+        questionCount: Array.isArray(questions) ? questions.length : 0 
+      });
       return {
         content: [
           { 
@@ -34,6 +44,11 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to list questions', { 
+        surveyId, 
+        groupId: groupId || 'all',
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -61,8 +76,16 @@ server.tool(
     language: z.string().optional().describe("Optional: Language for group texts")
   },
   async ({ surveyId, language }) => {
+    logger.info('Listing question groups', { 
+      surveyId, 
+      language: language || 'default'
+    });
     try {
       const groups = await limesurveyAPI.listGroups(surveyId, language || null);
+      logger.info('Successfully retrieved question groups', { 
+        surveyId, 
+        groupCount: Array.isArray(groups) ? groups.length : 0 
+      });
       return {
         content: [
           { 
@@ -76,6 +99,10 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to list question groups', { 
+        surveyId, 
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -104,12 +131,21 @@ server.tool(
     properties: z.array(z.string()).optional().describe("Optional: Array of property names to retrieve")
   },
   async ({ questionId, language, properties }) => {
+    logger.info('Getting question properties', { 
+      questionId,
+      language: language || 'default',
+      propertyCount: properties?.length || 'all'
+    });
     try {
       const key = await limesurveyAPI.getSessionKey();
       const questionProperties = await limesurveyAPI.request(
         'get_question_properties', 
         [key, questionId, language || null, properties || null]
       );
+      logger.info('Successfully retrieved question properties', { 
+        questionId,
+        propertyCount: Object.keys(questionProperties || {}).length
+      });
       return {
         content: [
           { 
@@ -123,6 +159,10 @@ server.tool(
         ]
       };
     } catch (error: any) {
+      logger.error('Failed to get question properties', { 
+        questionId,
+        error: error?.message 
+      });
       return {
         content: [{ 
           type: "text", 
@@ -134,4 +174,4 @@ server.tool(
   }
 );
 
-console.log("Questions tools registered!");
+logger.info("Questions tools registered!");
