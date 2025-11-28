@@ -208,3 +208,282 @@ server.tool(
 );
 
 logger.info("Responses tools registered!");
+
+/**
+ * Add a single response
+ */
+server.tool(
+  "addResponse",
+  "Adds a response to a survey",
+  {
+    surveyId: z.string().describe("Survey ID"),
+    responseData: z.record(z.any()).describe("Response data as key/value map")
+  },
+  async ({ surveyId, responseData }) => {
+    logger.info('Adding response', { surveyId });
+    try {
+      const responseId = await limesurveyAPI.addResponse(surveyId, responseData);
+      return {
+        content: [{ type: "text", text: `Response added to survey ${surveyId} with ID ${responseId}` }]
+      };
+    } catch (error: any) {
+      logger.error('Failed to add response', { surveyId, error: error?.message });
+      return {
+        content: [{ type: "text", text: `Error adding response: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * Update a response
+ */
+server.tool(
+  "updateResponse",
+  "Updates an existing response",
+  {
+    surveyId: z.string().describe("Survey ID"),
+    responseId: z.string().describe("Response ID"),
+    responseData: z.record(z.any()).describe("Fields to update")
+  },
+  async ({ surveyId, responseId, responseData }) => {
+    logger.info('Updating response', { surveyId, responseId });
+    try {
+      const result = await limesurveyAPI.updateResponse(surveyId, responseId, responseData);
+      return {
+        content: [{ type: "text", text: `Response ${responseId} updated: ${result}` }]
+      };
+    } catch (error: any) {
+      logger.error('Failed to update response', { surveyId, responseId, error: error?.message });
+      return {
+        content: [{ type: "text", text: `Error updating response: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * Delete a single response
+ */
+server.tool(
+  "deleteResponse",
+  "Deletes a single response",
+  {
+    surveyId: z.string().describe("Survey ID"),
+    responseId: z.string().describe("Response ID"),
+    confirmDeletion: z.literal(true).describe("Must be true to delete")
+  },
+  async ({ surveyId, responseId }) => {
+    logger.warn('Deleting response', { surveyId, responseId });
+    try {
+      const result = await limesurveyAPI.deleteResponse(surveyId, responseId);
+      return {
+        content: [
+          { type: "text", text: `Response ${responseId} deleted from survey ${surveyId}` },
+          { type: "text", text: JSON.stringify(result, null, 2) }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to delete response', { surveyId, responseId, error: error?.message });
+      return {
+        content: [{ type: "text", text: `Error deleting response: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+// NOTE: The LimeSurvey RemoteControl API does not expose a documented
+// `get_response`, `delete_all_responses`, `set_response_status` or
+// `import_responses` method. We therefore do NOT expose tools for those
+// names to avoid calling non‑existent endpoints. Use `getResponseIds`
+// + `exportResponses`/`exportResponsesByToken` for read access, and
+// `addResponse`/`updateResponse`/`deleteResponse` for write operations.
+
+/**
+ * Get response IDs (optionally by token)
+ */
+server.tool(
+  "getResponseIds",
+  "Gets response IDs for a survey, optionally filtered by token",
+  {
+    surveyId: z.string().describe("Survey ID"),
+    token: z.string().optional().describe("Filter by token")
+  },
+  async ({ surveyId, token }) => {
+    logger.info('Getting response IDs', { surveyId, token: token || 'all' });
+    try {
+      const ids = await limesurveyAPI.getResponseIds(surveyId, token || null);
+      return {
+        content: [
+          { type: "text", text: `Response IDs for survey ${surveyId}${token ? ' (token ' + token + ')' : ''}` },
+          { type: "text", text: JSON.stringify(ids, null, 2) }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to get response IDs', { surveyId, token, error: error?.message });
+      return {
+        content: [{ type: "text", text: `Error getting response IDs: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * Export responses by token
+ */
+server.tool(
+  "exportResponsesByToken",
+  "Exports responses for a specific token",
+  {
+    surveyId: z.string().describe("Survey ID"),
+    token: z.string().describe("Token value"),
+    documentType: z.string().default("csv").describe("csv, xls, pdf, html, json"),
+    language: z.string().optional().describe("Language code"),
+    completionStatus: z.enum(['complete', 'incomplete', 'all']).default('all').describe("Completion filter"),
+    headingType: z.enum(['code', 'full', 'abbreviated']).default('code').describe("Heading type"),
+    responseType: z.enum(['short', 'long']).default('short').describe("Response type"),
+    decodeOutput: z.boolean().default(true).describe("Decode base64 for text formats")
+  },
+  async ({ surveyId, token, documentType, language, completionStatus, headingType, responseType, decodeOutput }) => {
+    logger.info('Exporting responses by token', { surveyId, token, documentType });
+    try {
+      const exportData = await limesurveyAPI.exportResponsesByToken(
+        surveyId,
+        token,
+        documentType,
+        language || null,
+        completionStatus,
+        headingType,
+        responseType
+      );
+
+      const textFormats = ['csv', 'json', 'txt', 'html'];
+      const isBinary = !textFormats.includes(documentType.toLowerCase());
+
+      if (decodeOutput && !isBinary) {
+        const decoded = Buffer.from(exportData, 'base64').toString('utf-8');
+        const preview = decoded.substring(0, 1000) + (decoded.length > 1000 ? '\n...[truncated]' : '');
+        return {
+          content: [
+            { type: "text", text: `Responses for token ${token} exported as ${documentType}` },
+            { type: "text", text: `Preview:\n${preview}` }
+          ]
+        };
+      }
+
+      const sizeKB = Math.round(exportData.length * 0.75 / 1024);
+      return {
+        content: [{ type: "text", text: `Responses for token ${token} exported as ${documentType} (base64, ~${sizeKB} KB)` }]
+      };
+    } catch (error: any) {
+      logger.error('Failed to export responses by token', { surveyId, token, error: error?.message });
+      return {
+        content: [{ type: "text", text: `Error exporting responses by token: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * Export response timeline
+ */
+server.tool(
+  "exportTimeline",
+  "Exports response timeline",
+  {
+    surveyId: z.string().describe("Survey ID"),
+    documentType: z.string().default('json').describe("Format (json or csv)"),
+    language: z.string().optional().describe("Language code"),
+    dateFrom: z.string().optional().describe("Optional start date (YYYY-MM-DD HH:mm:ss)"),
+    dateTo: z.string().optional().describe("Optional end date (YYYY-MM-DD HH:mm:ss)"),
+    decodeOutput: z.boolean().default(true).describe("Decode base64 for text formats")
+  },
+  async ({ surveyId, documentType, language, dateFrom, dateTo, decodeOutput }) => {
+    logger.info('Exporting timeline', { surveyId, documentType, dateFrom, dateTo });
+    try {
+      const exportData = await limesurveyAPI.exportTimeline(surveyId, documentType, language || null, dateFrom || null, dateTo || null);
+      if (decodeOutput) {
+        const decoded = Buffer.from(exportData, 'base64').toString('utf-8');
+        const preview = decoded.substring(0, 1000) + (decoded.length > 1000 ? '\n...[truncated]' : '');
+        return {
+          content: [
+            { type: "text", text: `Timeline exported as ${documentType}` },
+            { type: "text", text: `Preview:\n${preview}` }
+          ]
+        };
+      }
+      const sizeKB = Math.round(exportData.length * 0.75 / 1024);
+      return {
+        content: [{ type: "text", text: `Timeline exported as ${documentType} (base64, ~${sizeKB} KB)` }]
+      };
+    } catch (error: any) {
+      logger.error('Failed to export timeline', { surveyId, error: error?.message });
+      return {
+        content: [{ type: "text", text: `Error exporting timeline: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * Upload a file for a response
+ */
+server.tool(
+  "uploadFile",
+  "Uploads a file for a survey",
+  {
+    surveyId: z.string().describe("Survey ID"),
+    fileName: z.string().describe("File name"),
+    fileDataBase64: z.string().describe("File content base64")
+  },
+  async ({ surveyId, fileName, fileDataBase64 }) => {
+    logger.info('Uploading file', { surveyId, fileName });
+    try {
+      const url = await limesurveyAPI.uploadFile(surveyId, fileDataBase64, fileName);
+      return {
+        content: [{ type: "text", text: `File uploaded for survey ${surveyId}: ${url}` }]
+      };
+    } catch (error: any) {
+      logger.error('Failed to upload file', { surveyId, fileName, error: error?.message });
+      return {
+        content: [{ type: "text", text: `Error uploading file: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * List uploaded files
+ */
+server.tool(
+  "listUploadedFiles",
+  "Lists uploaded files for a survey",
+  {
+    surveyId: z.string().describe("Survey ID")
+  },
+  async ({ surveyId }) => {
+    logger.info('Listing uploaded files', { surveyId });
+    try {
+      const files = await limesurveyAPI.getUploadedFiles(surveyId);
+      return {
+        content: [
+          { type: "text", text: `Uploaded files for survey ${surveyId}` },
+          { type: "text", text: JSON.stringify(files, null, 2) }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to list uploaded files', { surveyId, error: error?.message });
+      return {
+        content: [{ type: "text", text: `Error listing uploaded files: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);

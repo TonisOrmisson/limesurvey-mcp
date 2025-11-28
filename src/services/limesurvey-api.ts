@@ -358,32 +358,6 @@ class LimeSurveyAPI {
   }
 
   /**
-   * Reset survey responses for a survey to remove all responses
-   * @param {number|string} surveyId - The survey ID
-   * @returns {Promise<Object>} - Status of the operation
-   */
-  async resetSurveyResponses(surveyId: number | string): Promise<any> {
-    const key = await this.getSessionKey();
-    return this.request('reset_survey_logic_file', [key, surveyId]);
-  }
-
-  /**
-   * Set survey response status
-   * @param {number|string} surveyId - The survey ID
-   * @param {number|string} responseId - The response ID
-   * @param {string} status - The new status
-   * @returns {Promise<string>} - Result of the operation
-   */
-  async setResponseStatus(
-    surveyId: number | string, 
-    responseId: number | string, 
-    status: string
-  ): Promise<string> {
-    const key = await this.getSessionKey();
-    return this.request('set_response_status', [key, surveyId, responseId, status]);
-  }
-
-  /**
    * Delete a response from a survey
    * @param {number|string} surveyId - The survey ID
    * @param {number|string} responseId - The response ID to delete
@@ -395,35 +369,6 @@ class LimeSurveyAPI {
   }
 
   /**
-   * Delete all responses from a survey
-   * @param {number|string} surveyId - The survey ID
-   * @returns {Promise<Object>} - Status of the operation
-   */
-  async deleteAllResponses(surveyId: number | string): Promise<any> {
-    const key = await this.getSessionKey();
-    return this.request('delete_all_responses', [key, surveyId]);
-  }
-
-  /**
-   * Import responses from a CSV file
-   * @param {number|string} surveyId - The survey ID
-   * @param {string} responseData - Base64 encoded CSV file with responses
-   * @param {string} importDataType - Optional: Format of the imported response data (default: CSV)
-   * @param {boolean} fullResponse - Optional: 1 for full response, 0 for matching key data (default: 0)
-   * @returns {Promise<Object>} - Import status and response IDs
-   */
-  async importResponses(
-    surveyId: number | string,
-    responseData: string,
-    importDataType: string = 'csv',
-    fullResponse: boolean = false
-  ): Promise<any> {
-    const key = await this.getSessionKey();
-    const fullResponseVal = fullResponse ? 1 : 0;
-    return this.request('import_responses', [key, surveyId, responseData, importDataType, fullResponseVal]);
-  }
-
-  /**
    * Add response to a survey
    * @param {number|string} surveyId - The survey ID
    * @param {Record<string, any>} responseData - The response data as an object
@@ -432,17 +377,6 @@ class LimeSurveyAPI {
   async addResponse(surveyId: number | string, responseData: Record<string, any>): Promise<number> {
     const key = await this.getSessionKey();
     return this.request('add_response', [key, surveyId, responseData]);
-  }
-
-  /**
-   * Get a response from a survey
-   * @param {number|string} surveyId - The survey ID
-   * @param {number|string} responseId - The response ID
-   * @returns {Promise<Object>} - The response data
-   */
-  async getResponse(surveyId: number | string, responseId: number | string): Promise<any> {
-    const key = await this.getSessionKey();
-    return this.request('get_response', [key, surveyId, responseId]);
   }
 
   /**
