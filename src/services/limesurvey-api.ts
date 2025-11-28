@@ -299,6 +299,22 @@ class LimeSurveyAPI {
   }
 
   /**
+   * Add a new (empty) survey
+   * @param {string} title - Survey title
+   * @param {string} language - Base language (default: en)
+   * @param {string} format - Question display format: 'A' (all), 'G' (group), 'S' (single) – default 'G'
+   * @returns {Promise<number>} - Newly created survey ID
+   */
+  async addSurvey(
+    title: string,
+    language: string = 'en',
+    format: 'A' | 'G' | 'S' = 'G'
+  ): Promise<number> {
+    const key = await this.getSessionKey();
+    return this.request('add_survey', [key, null, title, language, format]);
+  }
+
+  /**
    * Delete a survey
    * @param {number|string} surveyId - The survey ID to delete
    * @returns {Promise<Object>} - Status of the operation
@@ -306,6 +322,16 @@ class LimeSurveyAPI {
   async deleteSurvey(surveyId: number | string): Promise<any> {
     const key = await this.getSessionKey();
     return this.request('delete_survey', [key, surveyId]);
+  }
+
+  /**
+   * Activate token table for a survey
+   * @param {number|string} surveyId - The survey ID
+   * @returns {Promise<string|object>} - Status of activation
+   */
+  async activateTokens(surveyId: number | string): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('activate_tokens', [key, surveyId]);
   }
 
   /**
@@ -433,6 +459,65 @@ class LimeSurveyAPI {
   ): Promise<string> {
     const key = await this.getSessionKey();
     return this.request('update_response', [key, surveyId, responseId, responseData]);
+  }
+
+  /**
+   * Get list of response IDs (optionally filtered by token)
+   */
+  async getResponseIds(surveyId: number | string, token: string | null = null): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('get_response_ids', [key, surveyId, token]);
+  }
+
+  /**
+   * Export responses filtered by token
+   */
+  async exportResponsesByToken(
+    surveyId: number | string,
+    token: string,
+    documentType: string,
+    language: string | null = null,
+    completionStatus: string = 'all',
+    headingType: string = 'code',
+    responseType: string = 'short'
+  ): Promise<string> {
+    const key = await this.getSessionKey();
+    return this.request('export_responses_by_token', [
+      key,
+      surveyId,
+      token,
+      documentType,
+      language,
+      completionStatus,
+      headingType,
+      responseType
+    ]);
+  }
+
+  /**
+   * Export response timeline
+   */
+  async exportTimeline(
+    surveyId: number | string,
+    documentType: string = 'json',
+    language: string | null = null,
+    dateFrom: string | null = null,
+    dateTo: string | null = null
+  ): Promise<string> {
+    const key = await this.getSessionKey();
+    return this.request('export_timeline', [key, surveyId, documentType, language, dateFrom, dateTo]);
+  }
+
+  /**
+   * Get field map (question code to SGQA mapping)
+   */
+  async getFieldMap(
+    surveyId: number | string,
+    language: string | null = null,
+    forceRefresh: boolean = false
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('get_fieldmap', [key, surveyId, language, forceRefresh]);
   }
 
   /**

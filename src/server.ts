@@ -34,10 +34,12 @@ const transports: {[sessionId: string]: SSEServerTransport} = {};
  */
 export function logRegisteredTools() {
   console.log('\n===== REGISTERED TOOLS =====');
-  
-  // Get the tools using the proper approach for the SDK version
-  const toolNames = Object.keys((server as any)._registry?.tools || {});
-  
+
+  // SDK field renamed; support both old `_registry.tools` and new `_registeredTools`
+  const toolNames = Object.keys(
+    (server as any)._registeredTools || (server as any)._registry?.tools || {}
+  );
+
   if (toolNames.length === 0) {
     console.log('No tools registered yet.');
   } else {
@@ -90,13 +92,6 @@ export async function startServer() {
       res.status(400).send('No transport found for sessionId');
     }
   });
-  
-  // Log server mode
-  if (isReadOnlyMode) {
-    console.log(`Starting LimeSurvey MCP server in READ-ONLY mode`);
-  } else {
-    console.log(`Starting LimeSurvey MCP server with FULL access`);
-  }
   
   try {
     // Import tools modules dynamically to avoid circular dependencies
