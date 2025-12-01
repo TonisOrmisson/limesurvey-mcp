@@ -42,19 +42,102 @@ export function logRegisteredTools() {
 
   if (toolNames.length === 0) {
     console.log('No tools registered yet.');
-  } else {
-    console.log(`Total tools: ${toolNames.length}`);
-    toolNames.forEach((toolName: string, index: number) => {
-      console.log(`${index + 1}. ${toolName}`);
+    console.log('===========================\n');
+    return;
+  }
+
+  console.log(`Total tools: ${toolNames.length}`);
+
+  // Group tools by module / concern to make the list easier to scan.
+  const GROUP_DEFS: Record<string, string[]> = {
+    'surveys.ts': [
+      'findSurvey',
+      'listSurveys',
+      'getSurveyProperties',
+      'activateSurvey',
+      'getSurveyLanguageProperties',
+      'getAvailableLanguages',
+      'getSurveyLanguages',
+      'getFieldMap',
+    ],
+    'groups.ts': [
+      'listQuestionGroups',
+    ],
+    'questions.ts': [
+      'listQuestions',
+      'getQuestionProperties',
+    ],
+    'statistics.ts': [
+      'exportStatistics',
+    ],
+    'participants.ts': [
+      'addParticipant',
+      'listParticipants',
+      'getParticipantProperties',
+      'addMultipleParticipants',
+      'listFilteredParticipants',
+      'deleteParticipants',
+    ],
+    'responses.ts': [
+      'getResponseSummary',
+      'exportResponses',
+      'addResponse',
+      'updateResponse',
+      'deleteResponse',
+      'getResponseIds',
+      'exportResponsesByToken',
+      'exportTimeline',
+      'uploadFile',
+      'listUploadedFiles',
+    ],
+    'survey-management.ts': [
+      'addSurvey',
+      'importSurvey',
+      'exportSurveyStructure',
+      'copySurvey',
+      'deleteSurvey',
+      'activateTokens',
+    ],
+    'quotas.ts': [
+      'addQuota',
+      'getQuotaProperties',
+      'setQuotaProperties',
+      'deleteQuota',
+    ],
+    'languages.ts': [
+      'addSurveyLanguage',
+      'deleteSurveyLanguage',
+      'setSurveyLanguageProperties',
+    ],
+  };
+
+  const remaining = new Set(toolNames);
+
+  for (const [group, names] of Object.entries(GROUP_DEFS)) {
+    const present = names.filter((n) => remaining.has(n));
+    if (present.length === 0) continue;
+
+    console.log(`\n[${group}]`);
+    present.forEach((name) => {
+      console.log(`- ${name}`);
+      remaining.delete(name);
     });
   }
-  
-  console.log('===========================\n');
+
+  if (remaining.size > 0) {
+    console.log('\n[Other]');
+    Array.from(remaining)
+      .sort()
+      .forEach((name) => console.log(`- ${name}`));
+  }
+
+  console.log('\n===========================\n');
 }
 
 // Define read-only and write tool modules
 const readOnlyModules = [
   './tools/surveys.js',
+  './tools/groups.js',
   './tools/questions.js',
   './tools/statistics.js',
 ];
@@ -63,6 +146,8 @@ const writeModules = [
   './tools/participants.js',
   './tools/responses.js',
   './tools/survey-management.js',
+  './tools/quotas.js',
+  './tools/languages.js',
 ];
 
 

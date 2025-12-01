@@ -279,6 +279,13 @@ class LimeSurveyAPI {
 
   /**
    * Export survey structure as LSS file
+   *
+   * NOTE: There is no officially documented `export_survey` method in the
+   * current RemoteControl2 docs. This wrapper assumes your LimeSurvey
+   * instance provides an `export_survey` RPC function compatible with
+   * the legacy API. If it does *not* exist, calls to this method will
+   * fail with "method export_survey not found".
+   *
    * @param {number|string} surveyId - The survey ID
    * @returns {Promise<string>} - Base64 encoded string containing the survey structure
    */
@@ -545,19 +552,118 @@ class LimeSurveyAPI {
   }
 
   /**
-   * Get quota information for a survey
-   * @param {number|string} surveyId - The survey ID
-   * @param {number|string|null} quotaId - Optional: Specific quota ID (if null, returns all quotas)
-   * @param {string|null} language - Optional: Language for quota descriptions
-   * @returns {Promise<Object>} - Quota information
+   * Get properties of a single quota.
+   *
+   * Wraps the `get_quota_properties` RemoteControl method:
+   *   get_quota_properties($sessionKey, $iQuotaId, $aQuotaSettings = null, $sLanguage = null)
+   *
+   * This client does NOT support listing all quotas for a survey via RC2.
+   *
+   * @param {number|string} quotaId - Specific quota ID (required)
+   * @param {string|null} language - Optional: language for quota descriptions
+   * @returns {Promise<Object>} - Quota information for the given quota ID
    */
-  async getQuotas(
-    surveyId: number | string,
-    quotaId: number | string | null = null,
+  async getQuotaProperties(
+    quotaId: number | string,
     language: string | null = null
   ): Promise<any> {
     const key = await this.getSessionKey();
-    return this.request('get_quota', [key, surveyId, quotaId, language]);
+    return this.request('get_quota_properties', [key, quotaId, null, language]);
+  }
+
+  /**
+   * Add a new quota to a survey.
+   * Thin wrapper around the add_quota API; for advanced options
+   * (e.g. custom messages/URLs), call setQuotaProperties afterwards.
+   *
+   * @param {number|string} surveyId - The survey ID
+   * @param {string} name - Quota name
+   * @param {number} limit - Maximum number of responses for this quota
+   * @returns {Promise<any>} - Quota creation result (usually quota ID and data)
+   */
+  async addQuota(
+    surveyId: number | string,
+    name: string,
+    limit: number
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    // The RemoteControl API defines additional optional parameters
+    // (active flag, action, messages, URLs, etc.) with sensible defaults.
+    // We rely on those defaults here for a simple, focused wrapper.
+    return this.request('add_quota', [key, surveyId, name, limit]);
+  }
+
+  /**
+   * Update properties of an existing quota.
+   *
+   * @param {number|string} quotaId - The quota ID
+   * @param {Record<string, any>} data - Quota fields to update
+   * @returns {Promise<any>} - Result of the update operation
+   */
+  async setQuotaProperties(
+    quotaId: number | string,
+    data: Record<string, any>
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('set_quota_properties', [key, quotaId, data]);
+  }
+
+  /**
+   * Delete a quota.
+   *
+   * @param {number|string} quotaId - The quota ID to delete
+   * @returns {Promise<any>} - Deletion status
+   */
+  async deleteQuota(quotaId: number | string): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('delete_quota', [key, quotaId]);
+  }
+
+  /**
+   * Add a new language to a survey.
+   *
+   * @param {number|string} surveyId - The survey ID
+   * @param {string} language - Language code to add (e.g. "de", "fr")
+   * @returns {Promise<any>} - Language addition result
+   */
+  async addLanguage(
+    surveyId: number | string,
+    language: string
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('add_language', [key, surveyId, language]);
+  }
+
+  /**
+   * Delete a language from a survey.
+   *
+   * @param {number|string} surveyId - The survey ID
+   * @param {string} language - Language code to remove
+   * @returns {Promise<any>} - Deletion status
+   */
+  async deleteLanguage(
+    surveyId: number | string,
+    language: string
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('delete_language', [key, surveyId, language]);
+  }
+
+  /**
+   * Update survey language properties (locale data) for a given language.
+   *
+   * @param {number|string} surveyId - The survey ID
+   * @param {Record<string, any>} localeData - Locale data fields to update
+   * @param {string|null} language - Optional language code (null = base language)
+   * @returns {Promise<any>} - Update result
+   */
+  async setLanguageProperties(
+    surveyId: number | string,
+    localeData: Record<string, any>,
+    language: string | null = null
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('set_language_properties', [key, surveyId, localeData, language]);
   }
 
   /**

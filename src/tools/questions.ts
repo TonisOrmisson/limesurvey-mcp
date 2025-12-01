@@ -61,60 +61,6 @@ server.tool(
 );
 
 /**
- * Tool to list all question groups for a survey in LimeSurvey
- * 
- * Corresponds to the list_groups method in LimeSurvey Remote API
- * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_list_groups
- * 
- * Returns an array of all question groups for a specific survey
- */
-server.tool(
-  "listQuestionGroups", 
-  "Lists all question groups for a specific survey",
-  {
-    surveyId: z.string().describe("The ID of the survey"),
-    language: z.string().optional().describe("Optional: Language for group texts")
-  },
-  async ({ surveyId, language }) => {
-    logger.info('Listing question groups', { 
-      surveyId, 
-      language: language || 'default'
-    });
-    try {
-      const groups = await limesurveyAPI.listGroups(surveyId, language || null);
-      logger.info('Successfully retrieved question groups', { 
-        surveyId, 
-        groupCount: Array.isArray(groups) ? groups.length : 0 
-      });
-      return {
-        content: [
-          { 
-            type: "text", 
-            text: `Question groups for survey ID ${surveyId} retrieved successfully` 
-          },
-          {
-            type: "text", 
-            text: JSON.stringify(groups, null, 2)
-          }
-        ]
-      };
-    } catch (error: any) {
-      logger.error('Failed to list question groups', { 
-        surveyId, 
-        error: error?.message 
-      });
-      return {
-        content: [{ 
-          type: "text", 
-          text: `Error listing question groups: ${error?.message || 'Unknown error'}` 
-        }],
-        isError: true
-      };
-    }
-  }
-);
-
-/**
  * Tool to get question properties
  * 
  * Corresponds to the get_question_properties method in LimeSurvey Remote API
