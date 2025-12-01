@@ -2,10 +2,13 @@
 
 ## Project Structure & Modules
 - `src/index.ts` boots the MCP server and hands off to `src/server.ts`.
-- `src/server.ts` wires transports (stdio + SSE on `PORT`, default 3000), registers tools, honors `READONLY_MODE=true` to skip write modules.
-- Tools: `src/tools/` (surveys, questions, statistics, participants, responses, survey-management, quotas, languages). HTTP client: `src/services/limesurvey-api.ts`. Logging: `src/utils/logger.ts`.
-- Quota tools (`src/tools/quotas.ts`): `addQuota`, `setQuotaProperties`, `deleteQuota` (write; excluded when `READONLY_MODE=true`).
-- Language tools (`src/tools/languages.ts`): `addSurveyLanguage`, `deleteSurveyLanguage`, `setSurveyLanguageProperties` (write; excluded when `READONLY_MODE=true`).
+- `src/server.ts` wires transports (stdio + SSE on `PORT`, default 3000), registers tools, and exposes `isReadOnlyMode` based on `READONLY_MODE=true`.
+- Tools live in `src/tools/` (surveys, questions, statistics, participants, responses, survey-management, quotas, languages, group-management, question-management). HTTP client: `src/services/limesurvey-api.ts`. Logging: `src/utils/logger.ts`.
+- Read-only helpers: `src/utils/readonly-guard.ts` exports `ensureWriteAllowed(operationName)`; all write tools must call this at the top of their handler so that when `READONLY_MODE=true` they short‑circuit with a clear message instead of touching LimeSurvey.
+- Quota tools (`src/tools/quotas.ts`): `addQuota`, `getQuotaProperties`, `setQuotaProperties`, `deleteQuota` (write: add/set/delete; read: get).
+- Language tools (`src/tools/languages.ts`): `addSurveyLanguage`, `deleteSurveyLanguage`, `setSurveyLanguageProperties` (write; language reads via `getSurveyLanguageProperties` in `src/tools/surveys.ts`).
+- Group/question tools: `listQuestionGroups`, `getGroupProperties`, `setGroupProperties`, `listQuestions`, `getQuestionProperties`, `setQuestionProperties`.
+- Response/participants tools: see coverage matrix in `README.md` for the full list (`getResponseSummary`, `exportResponses`, `addResponse`, `updateResponse`, `deleteResponse`, `getResponseIds`, `exportResponsesByToken`, `exportTimeline`, `uploadFile`, `listUploadedFiles`, plus the participant CRUD + invite/remind tools).
 - Build output in `dist/`; runtime logs in `logs/`; secrets/config in `.env` (untracked).
 
 ## Build, Test, and Development Commands
@@ -27,6 +30,10 @@
     - The official RemoteControl2 documentation, and
     - The local source file `LIME/remotecontrol_handle.php` in this repo (treat this file as the source of truth for the actual instance).
   - Validate all input parameters and types with `zod` schemas (no “pass‑through” unvalidated payloads), keeping names and semantics aligned with the PHP method signatures.
+  - For **write** operations (anything that creates/updates/deletes or sends emails), always:
+    - Guard with `ensureWriteAllowed('<toolName>')` at the very top of the handler.
+    - Require an explicit `confirm...` flag (for example `confirmDeletion: z.literal(true)`) on destructive tools.
+    - Log at least one `logger.info`/`logger.warn` with context (IDs, counts) on start and on success, and `logger.error` on failures.
 
 ## Testing Guidelines
 - Stub LimeSurvey API calls; do not hit real endpoints or store credentials.

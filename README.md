@@ -46,13 +46,81 @@ LIMESURVEY_PASSWORD=your_password
 
 # Server settings
 PORT=3000
+
+# Optional: run in read‑only mode
+# When true, all write tools short‑circuit and return an error message
+# instead of calling LimeSurvey.
+READONLY_MODE=false
 ```
 
 ## Usage
 
 Once the server is running, you can use any MCP client to connect to it and access LimeSurvey functionality.
 
+Example MCP client snippet (pseudo‑YAML) to list surveys:
+
+```yaml
+tool: listSurveys
+args: {}
+```
+
 ## API Reference
+
+### RemoteControl2 Coverage
+
+The table below shows how LimeSurvey RemoteControl2 methods are exposed as MCP tools
+in this server. Methods that are not implemented here are either not available in
+the target LimeSurvey instance or intentionally skipped (for example unstable or
+undocumented endpoints).
+
+| Domain              | RemoteControl2 method        | MCP tool name              | Notes                                  |
+|---------------------|------------------------------|----------------------------|----------------------------------------|
+| Surveys             | `list_surveys`               | `listSurveys`              | read‑only                              |
+| Surveys             | `get_survey_properties`      | `getSurveyProperties`      | read‑only                              |
+| Surveys             | `activate_survey`            | `activateSurvey`           | write (guarded by `READONLY_MODE`)     |
+| Surveys             | `get_language_properties`    | `getSurveyLanguageProperties` | read‑only                           |
+| Surveys             | `get_site_settings`          | `getAvailableLanguages`    | reads `availablelanguages` setting     |
+| Surveys             | — (derived)                  | `getSurveyLanguages`       | derived from survey properties         |
+| Surveys             | `get_fieldmap`               | `getFieldMap`              | read‑only                              |
+| Survey lifecycle    | `add_survey`                 | `addSurvey`                | write (guarded)                        |
+| Survey lifecycle    | `import_survey`              | `importSurvey`             | write (guarded)                        |
+| Survey lifecycle    | `copy_survey`                | `copySurvey`               | write (guarded)                        |
+| Survey lifecycle    | `delete_survey`              | `deleteSurvey`             | write (guarded, confirmation required) |
+| Survey lifecycle    | `activate_tokens`            | `activateTokens`           | write (guarded)                        |
+| Survey lifecycle    | `set_survey_properties`      | `setSurveyProperties`      | write (guarded)                        |
+| Question groups     | `list_groups`                | `listQuestionGroups`       | read‑only                              |
+| Question groups     | `get_group_properties`       | `getGroupProperties`       | read‑only                              |
+| Question groups     | `set_group_properties`       | `setGroupProperties`       | write (guarded)                        |
+| Questions           | `list_questions`             | `listQuestions`            | read‑only                              |
+| Questions           | `get_question_properties`    | `getQuestionProperties`    | read‑only                              |
+| Questions           | `set_question_properties`    | `setQuestionProperties`    | write (guarded)                        |
+| Responses           | `get_summary`                | `getResponseSummary`       | read‑only                              |
+| Responses           | `export_responses`           | `exportResponses`          | read‑only export                       |
+| Responses           | `add_response`               | `addResponse`              | write (guarded)                        |
+| Responses           | `update_response`            | `updateResponse`           | write (guarded)                        |
+| Responses           | `delete_response`            | `deleteResponse`           | write (guarded, confirmation required) |
+| Responses           | `get_response_ids`           | `getResponseIds`           | read‑only                              |
+| Responses           | `export_responses_by_token`  | `exportResponsesByToken`   | read‑only export                       |
+| Responses           | `export_timeline`            | `exportTimeline`           | read‑only aggregated counts            |
+| Files               | `upload_file`                | `uploadFile`               | write (guarded)                        |
+| Files               | `get_uploaded_files`         | `listUploadedFiles`        | read‑only                              |
+| Participants/tokens | `add_participants`           | `addParticipant`, `addMultipleParticipants` | write (guarded)            |
+| Participants/tokens | `list_participants`          | `listParticipants`, `listFilteredParticipants` | read‑only                  |
+| Participants/tokens | `get_participant_properties` | `getParticipantProperties` | read‑only                              |
+| Participants/tokens | `delete_participants`        | `deleteParticipants`       | write (guarded, confirmation required) |
+| Participants/tokens | `invite_participants`        | `inviteParticipants`       | write (guarded, email/notification)    |
+| Participants/tokens | `remind_participants`        | `remindParticipants`       | write (guarded, email/notification)    |
+| Quotas              | `get_quota_properties`       | `getQuotaProperties`       | read‑only; no list‑all wrapper         |
+| Quotas              | `add_quota`                  | `addQuota`                 | write (guarded)                        |
+| Quotas              | `set_quota_properties`       | `setQuotaProperties`       | write (guarded)                        |
+| Quotas              | `delete_quota`               | `deleteQuota`              | write (guarded, confirmation required) |
+| Languages           | `add_language`               | `addSurveyLanguage`        | write (guarded)                        |
+| Languages           | `delete_language`            | `deleteSurveyLanguage`     | write (guarded, confirmation required) |
+| Languages           | `set_language_properties`    | `setSurveyLanguageProperties` | write (guarded)                     |
+| Site settings       | `get_site_settings`          | `getAvailableLanguages`    | read‑only                              |
+
+When `READONLY_MODE=true` is set in the environment, all tools marked as “write
+(guarded)” above will return a clear error message without calling LimeSurvey.
 
 ### Survey Management
 

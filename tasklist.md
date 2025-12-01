@@ -29,7 +29,7 @@ Reach full coverage of LimeSurvey RemoteControl2 API with MCP tools, starting wi
 - [x] **Read-only guard**: ensure write tools respect `READONLY_MODE` and short-circuit with clear messages.
 - [x] **Logging**: add structured logs for each new tool (start, success, error, counts/IDs).
 - [x] **Validation**: use `zod` schemas for inputs; add confirmation flags for destructive actions.
-- [ ] **Docs**: update `AGENTS.md` and `README.md` with new tools and command examples; include coverage matrix.
+- [x] **Docs**: update `AGENTS.md` and `README.md` with new tools and command examples; include coverage matrix.
 
 ## Sequence to execute
 1) Implement survey lifecycle tools (`survey-management.ts`) and response CRUD/export gaps.
