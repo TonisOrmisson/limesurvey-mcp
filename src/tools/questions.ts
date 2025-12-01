@@ -62,58 +62,71 @@ server.tool(
 
 /**
  * Tool to get question properties
- * 
+ *
  * Corresponds to the get_question_properties method in LimeSurvey Remote API
  * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_get_question_properties
- * 
- * Returns properties for a specific question
+ *
+ * Returns properties for a specific question (read-only)
  */
 server.tool(
   "getQuestionProperties",
   "Gets properties for a specific question",
   {
-    questionId: z.string().describe("The ID of the question"),
-    language: z.string().optional().describe("Optional: Language for question texts"),
-    properties: z.array(z.string()).optional().describe("Optional: Array of property names to retrieve")
+    questionId: z.union([z.string(), z.number()]).describe("The ID of the question"),
+    properties: z.array(z.string()).optional().describe("Optional: array of property names to retrieve"),
+    language: z.string().optional().describe("Optional: language code for question texts; defaults to survey base language")
   },
-  async ({ questionId, language, properties }) => {
-    logger.info('Getting question properties', { 
+  async ({ questionId, properties, language }) => {
+    logger.info('Getting question properties', {
       questionId,
       language: language || 'default',
-      propertyCount: properties?.length || 'all'
+      propertyCount: properties?.length ?? 'all'
     });
     try {
-      const key = await limesurveyAPI.getSessionKey();
-      const questionProperties = await limesurveyAPI.request(
-        'get_question_properties', 
-        [key, questionId, language || null, properties || null]
-      );
-      logger.info('Successfully retrieved question properties', { 
+      const result = await limesurveyAPI.getQuestionProperties(
         questionId,
-        propertyCount: Object.keys(questionProperties || {}).length
-      });
+        properties ?? null,
+        language ?? null
+      );
+
+      if (
+        !result ||
+        (Array.isArray(result) && result.length === 0) ||
+        (typeof result === 'object' && Object.keys(result).length === 0)
+      ) {
+        logger.info('No question properties found', { questionId });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No question found with ID ${questionId}`
+            }
+          ]
+        };
+      }
+
+      logger.info('Question properties retrieved', { questionId });
       return {
         content: [
-          { 
-            type: "text", 
-            text: `Properties for question ID ${questionId} retrieved successfully` 
+          {
+            type: "text",
+            text: `Properties for question ID ${questionId} retrieved successfully`
           },
           {
-            type: "text", 
-            text: JSON.stringify(questionProperties, null, 2)
+            type: "text",
+            text: JSON.stringify(result, null, 2)
           }
         ]
       };
     } catch (error: any) {
-      logger.error('Failed to get question properties', { 
-        questionId,
-        error: error?.message 
-      });
+      logger.error('Failed to get question properties', { questionId, error: error?.message });
       return {
-        content: [{ 
-          type: "text", 
-          text: `Error retrieving question properties: ${error?.message || 'Unknown error'}` 
-        }],
+        content: [
+          {
+            type: "text",
+            text: `Error retrieving question properties: ${error?.message || 'Unknown error'}`
+          }
+        ],
         isError: true
       };
     }

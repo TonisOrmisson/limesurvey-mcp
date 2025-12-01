@@ -134,26 +134,85 @@ class LimeSurveyAPI {
   }
 
   /**
-   * List questions for a survey
-   * @param {number|string} surveyId - The survey ID
-   * @param {number|string} groupId - The group ID (optional)
-   * @param {string} language - The language (optional)
-   * @returns {Promise<Array>} - List of questions
+   * Get properties for a specific question.
+   *
+   * RemoteControl: get_question_properties($sessionKey, $iQuestionID, $aQuestionSettings = null, $sLanguage = null)
    */
-  async listQuestions(surveyId: number | string, groupId: number | string | null = null, language: string | null = null): Promise<any[]> {
+  async getQuestionProperties(
+    questionId: number | string,
+    settings: string[] | null = null,
+    language: string | null = null
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('get_question_properties', [key, questionId, settings, language]);
+  }
+
+  /**
+   * Set properties on a specific question.
+   *
+   * RemoteControl: set_question_properties($sessionKey, $iQuestionID, $aQuestionData, $sLanguage = null)
+   */
+  async setQuestionProperties(
+    questionId: number | string,
+    data: Record<string, any>,
+    language: string | null = null
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('set_question_properties', [key, questionId, data, language]);
+  }
+
+  /**
+   * List questions for a survey.
+   *
+   * RemoteControl: list_questions($sessionKey, $iSurveyID, $iGroupID = null, $sLanguage = null)
+   */
+  async listQuestions(
+    surveyId: number | string,
+    groupId: number | string | null = null,
+    language: string | null = null
+  ): Promise<any[]> {
     const key = await this.getSessionKey();
     return this.request('list_questions', [key, surveyId, groupId, language]);
   }
 
   /**
-   * List question groups for a survey
-   * @param {number|string} surveyId - The survey ID
-   * @param {string} language - The language (optional)
-   * @returns {Promise<Array>} - List of question groups
+   * List question groups for a survey.
+   *
+   * RemoteControl: list_groups($sessionKey, $iSurveyID, $sLanguage = null)
    */
-  async listGroups(surveyId: number | string, language: string | null = null): Promise<any[]> {
+  async listGroups(
+    surveyId: number | string,
+    language: string | null = null
+  ): Promise<any[]> {
     const key = await this.getSessionKey();
     return this.request('list_groups', [key, surveyId, language]);
+  }
+
+  /**
+   * Get properties for a question group.
+   *
+   * RemoteControl: get_group_properties($sessionKey, $iGroupID, $aGroupSettings = null, $sLanguage = null)
+   */
+  async getGroupProperties(
+    groupId: number | string,
+    settings: string[] | null = null,
+    language: string | null = null
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('get_group_properties', [key, groupId, settings, language]);
+  }
+
+  /**
+   * Set properties on a question group.
+   *
+   * RemoteControl: set_group_properties($sessionKey, $iGroupID, $aGroupData)
+   */
+  async setGroupProperties(
+    groupId: number | string,
+    data: Record<string, any>
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('set_group_properties', [key, groupId, data]);
   }
 
   /**

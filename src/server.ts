@@ -62,10 +62,17 @@ export function logRegisteredTools() {
     ],
     'groups.ts': [
       'listQuestionGroups',
+      'getGroupProperties',
+    ],
+    'group-management.ts': [
+      'setGroupProperties',
     ],
     'questions.ts': [
       'listQuestions',
       'getQuestionProperties',
+    ],
+    'question-management.ts': [
+      'setQuestionProperties',
     ],
     'statistics.ts': [
       'exportStatistics',
@@ -148,6 +155,8 @@ const writeModules = [
   './tools/survey-management.js',
   './tools/quotas.js',
   './tools/languages.js',
+  './tools/group-management.js',
+  './tools/question-management.js',
 ];
 
 
