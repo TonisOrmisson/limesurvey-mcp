@@ -752,19 +752,6 @@ class LimeSurveyAPI {
     return this.request('set_language_properties', [key, surveyId, localeData, language]);
   }
 
-  /**
-   * Get user details for one or multiple users
-   * @param {number|string|number[]|string[]|null} userId - User ID(s) or null for current user
-   * @param {string[]} attributes - Optional: User attributes to fetch
-   * @returns {Promise<Object>} - User details
-   */
-  async getUserDetails(
-    userId: number | string | number[] | string[] | null = null,
-    attributes: string[] = []
-  ): Promise<any> {
-    const key = await this.getSessionKey();
-    return this.request('get_user_details', [key, userId, attributes]);
-  }
 }
 
 // Export a singleton instance
