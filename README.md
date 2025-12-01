@@ -223,6 +223,22 @@ Sets language‑specific properties for a survey language.
 **Returns**:
 - Result object describing the updated language properties
 
+#### setSurveyProperties
+
+Sets properties for a survey.
+
+This tool wraps the `set_survey_properties` RemoteControl method:
+`set_survey_properties($sessionKey, $iSurveyID, $aSurveyData)`. Some fields
+(for example `sid`, `active`, `language`, `additional_languages`, and several
+fields on active surveys) cannot be changed and will be ignored by LimeSurvey.
+
+**Parameters**:
+- `surveyId`: The ID of the survey
+- `properties`: Object of survey fields to update
+
+**Returns**:
+- Result object describing which fields were updated successfully
+
 ### Question Management
 
 #### listQuestions

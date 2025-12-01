@@ -57,42 +57,6 @@ server.tool(
   }
 );
 
-// Export survey structure (LSS)
-server.tool(
-  'exportSurveyStructure',
-  'Exports a survey structure as base64 LSS (optionally decoded preview)',
-  {
-    surveyId: z.string().describe('Survey ID to export'),
-    decodePreview: z.boolean().default(false).describe('If true, return first 1000 chars decoded for quick view')
-  },
-  async ({ surveyId, decodePreview }) => {
-    try {
-      const data = await limesurveyAPI.exportSurveyStructure(surveyId);
-      if (!decodePreview) {
-        const sizeKB = Math.round(data.length * 0.75 / 1024);
-        return {
-          content: [{ type: 'text', text: `Exported survey ${surveyId} (base64 LSS, ~${sizeKB} KB)` }]
-        };
-      }
-
-      const decoded = Buffer.from(data, 'base64').toString('utf-8');
-      const preview = decoded.substring(0, 1000) + (decoded.length > 1000 ? '\n...[truncated]' : '');
-      return {
-        content: [
-          { type: 'text', text: `Exported survey ${surveyId} (base64 LSS)` },
-          { type: 'text', text: `Preview (decoded):\n${preview}` }
-        ]
-      };
-    } catch (error: any) {
-      logger.error('Failed to export survey', { surveyId, error: error?.message });
-      return {
-        content: [{ type: 'text', text: `Error exporting survey: ${error?.message || 'Unknown error'}` }],
-        isError: true
-      };
-    }
-  }
-);
-
 // Copy survey
 server.tool(
   'copySurvey',
@@ -171,6 +135,66 @@ server.tool(
       logger.error('Failed to activate tokens', { surveyId, error: error?.message });
       return {
         content: [{ type: 'text', text: `Error activating tokens: ${error?.message || 'Unknown error'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+// Set survey properties
+server.tool(
+  'setSurveyProperties',
+  'Sets properties for a survey using the set_survey_properties RemoteControl method',
+  {
+    surveyId: z.string().describe('Survey ID whose properties to update'),
+    properties: z
+      .record(z.any())
+      .describe(
+        'Survey fields to update (see Survey attributes; sid/active/language/additional_languages and some fields on active surveys are restricted by LS)'
+      )
+  },
+  async ({ surveyId, properties }) => {
+    logger.info('Setting survey properties', {
+      surveyId,
+      propertyKeys: Object.keys(properties || {})
+    });
+
+    if (!properties || Object.keys(properties).length === 0) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'No properties provided; please supply at least one survey field to update'
+          }
+        ],
+        isError: true
+      };
+    }
+
+    try {
+      const result = await limesurveyAPI.setSurveyProperties(surveyId, properties);
+      logger.info('Survey properties updated', { surveyId, result });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Survey ${surveyId} properties updated`
+          },
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to set survey properties', { surveyId, error: error?.message });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error setting survey properties: ${error?.message || 'Unknown error'}`
+          }
+        ],
         isError: true
       };
     }

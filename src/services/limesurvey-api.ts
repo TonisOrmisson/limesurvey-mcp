@@ -305,6 +305,19 @@ class LimeSurveyAPI {
   }
 
   /**
+   * Set survey properties.
+   *
+   * RemoteControl: set_survey_properties($sessionKey, $iSurveyID, $aSurveyData)
+   */
+  async setSurveyProperties(
+    surveyId: number | string,
+    data: Record<string, any>
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('set_survey_properties', [key, surveyId, data]);
+  }
+
+  /**
    * Add a participant to a survey
    * @param {number|string} surveyId - The survey ID
    * @param {Object} participantData - The participant data
@@ -334,23 +347,6 @@ class LimeSurveyAPI {
   ): Promise<number> {
     const key = await this.getSessionKey();
     return this.request('import_survey', [key, surveyFile, importName, ownerId]);
-  }
-
-  /**
-   * Export survey structure as LSS file
-   *
-   * NOTE: There is no officially documented `export_survey` method in the
-   * current RemoteControl2 docs. This wrapper assumes your LimeSurvey
-   * instance provides an `export_survey` RPC function compatible with
-   * the legacy API. If it does *not* exist, calls to this method will
-   * fail with "method export_survey not found".
-   *
-   * @param {number|string} surveyId - The survey ID
-   * @returns {Promise<string>} - Base64 encoded string containing the survey structure
-   */
-  async exportSurveyStructure(surveyId: number | string): Promise<string> {
-    const key = await this.getSessionKey();
-    return this.request('export_survey', [key, surveyId]);
   }
 
   /**
@@ -412,16 +408,7 @@ class LimeSurveyAPI {
     return this.request('import_group', [key, importData, importName, importVersion]);
   }
 
-  /**
-   * Export a question group
-   * @param {number|string} surveyId - The survey ID
-   * @param {number|string} groupId - The group ID
-   * @returns {Promise<string>} - Base64 encoded string containing the group structure
-   */
-  async exportGroup(surveyId: number | string, groupId: number | string): Promise<string> {
-    const key = await this.getSessionKey();
-    return this.request('export_group', [key, surveyId, groupId]);
-  }
+
 
   /**
    * Delete a response from a survey
@@ -578,6 +565,46 @@ class LimeSurveyAPI {
   ): Promise<any[]> {
     const key = await this.getSessionKey();
     return this.request('add_participants', [key, surveyId, participants, createToken]);
+  }
+
+  /**
+   * Send invitations to survey participants.
+   *
+   * RemoteControl: invite_participants($sessionKey, $iSurveyID, $aTokenIds = null, $bEmail = true, $continueOnError = false)
+   */
+  async inviteParticipants(
+    surveyId: number | string,
+    tokenIds: Array<number | string> | null = null,
+    sendEmail: boolean = true,
+    continueOnError: boolean = false
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('invite_participants', [key, surveyId, tokenIds, sendEmail, continueOnError]);
+  }
+
+  /**
+   * Send reminders to survey participants.
+   *
+   * RemoteControl: remind_participants($sessionKey, $iSurveyID, $iMinDaysBetween = null, $iMaxReminders = null, $aTokenIds = false, $continueOnError = false)
+   */
+  async remindParticipants(
+    surveyId: number | string,
+    minDaysBetween: number | null = null,
+    maxReminders: number | null = null,
+    tokenIds: Array<number | string> | null = null,
+    continueOnError: boolean = false
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    // The PHP method defaults $aTokenIds to false; we pass null as "no filter"
+    const ids = tokenIds ?? false;
+    return this.request('remind_participants', [
+      key,
+      surveyId,
+      minDaysBetween,
+      maxReminders,
+      ids,
+      continueOnError
+    ]);
   }
 
   /**

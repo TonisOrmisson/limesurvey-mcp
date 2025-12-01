@@ -84,6 +84,8 @@ export function logRegisteredTools() {
       'addMultipleParticipants',
       'listFilteredParticipants',
       'deleteParticipants',
+      'inviteParticipants',
+      'remindParticipants',
     ],
     'responses.ts': [
       'getResponseSummary',
@@ -100,10 +102,10 @@ export function logRegisteredTools() {
     'survey-management.ts': [
       'addSurvey',
       'importSurvey',
-      'exportSurveyStructure',
       'copySurvey',
       'deleteSurvey',
       'activateTokens',
+      'setSurveyProperties',
     ],
     'quotas.ts': [
       'addQuota',

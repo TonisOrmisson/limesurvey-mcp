@@ -375,5 +375,122 @@ server.tool(
       }
     }
   );
-  
+
+/**
+ * Tool to send invitations to survey participants.
+ *
+ * Wraps the invite_participants RemoteControl method:
+ *   invite_participants($sessionKey, $iSurveyID, $aTokenIds = null, $bEmail = true, $continueOnError = false)
+ */
+server.tool(
+  "inviteParticipants",
+  "Sends invitations to survey participants",
+  {
+    surveyId: z.string().describe("The ID of the survey"),
+    tokenIds: z.array(z.union([z.string(), z.number()])).optional().describe("Optional: specific token IDs to invite; omit to invite all eligible tokens"),
+    sendEmail: z.boolean().default(true).describe("Whether to actually send emails (default: true)"),
+    continueOnError: z.boolean().default(false).describe("Do not stop on first invalid participant")
+  },
+  async ({ surveyId, tokenIds, sendEmail, continueOnError }) => {
+    logger.info('Inviting participants', {
+      surveyId,
+      tokenIdsCount: tokenIds?.length ?? 'all',
+      sendEmail,
+      continueOnError
+    });
+    try {
+      const result = await limesurveyAPI.inviteParticipants(
+        surveyId,
+        tokenIds ?? null,
+        sendEmail,
+        continueOnError
+      );
+      logger.info('Invitations sent', { surveyId });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invitations triggered for survey ${surveyId}`
+          },
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to invite participants', { surveyId, error: error?.message });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error inviting participants: ${error?.message || 'Unknown error'}`
+          }
+        ],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * Tool to send reminders to survey participants.
+ *
+ * Wraps the remind_participants RemoteControl method:
+ *   remind_participants($sessionKey, $iSurveyID, $iMinDaysBetween = null, $iMaxReminders = null, $aTokenIds = false, $continueOnError = false)
+ */
+server.tool(
+  "remindParticipants",
+  "Sends reminders to survey participants",
+  {
+    surveyId: z.string().describe("The ID of the survey"),
+    minDaysBetween: z.number().optional().describe("Optional: minimum days between reminders"),
+    maxReminders: z.number().optional().describe("Optional: maximum number of reminders"),
+    tokenIds: z.array(z.union([z.string(), z.number()])).optional().describe("Optional: specific token IDs to remind; omit to apply to all eligible tokens"),
+    continueOnError: z.boolean().default(false).describe("Do not stop on first invalid participant")
+  },
+  async ({ surveyId, minDaysBetween, maxReminders, tokenIds, continueOnError }) => {
+    logger.info('Sending participant reminders', {
+      surveyId,
+      minDaysBetween: minDaysBetween ?? 'default',
+      maxReminders: maxReminders ?? 'default',
+      tokenIdsCount: tokenIds?.length ?? 'all',
+      continueOnError
+    });
+    try {
+      const result = await limesurveyAPI.remindParticipants(
+        surveyId,
+        minDaysBetween ?? null,
+        maxReminders ?? null,
+        tokenIds ?? null,
+        continueOnError
+      );
+      logger.info('Reminders sent', { surveyId });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Reminders triggered for survey ${surveyId}`
+          },
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to send reminders', { surveyId, error: error?.message });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error sending reminders: ${error?.message || 'Unknown error'}`
+          }
+        ],
+        isError: true
+      };
+    }
+  }
+);
+
 logger.info("Participants tools registered!");
