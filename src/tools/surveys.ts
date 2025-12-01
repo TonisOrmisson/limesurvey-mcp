@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 
 
@@ -227,6 +228,11 @@ server.tool(
     surveyId: z.string().describe("The ID of the survey to activate")
   },
   async ({ surveyId }) => {
+    const readonly = ensureWriteAllowed('activateSurvey');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Activating survey', { surveyId });
     try {
       const result = await limesurveyAPI.activateSurvey(surveyId);
@@ -277,11 +283,7 @@ server.tool(
   async ({ surveyId, language }) => {
     logger.info('Getting survey language properties', { surveyId, language });
     try {
-      const key = await limesurveyAPI.getSessionKey();
-      const properties = await limesurveyAPI.request(
-        'get_language_properties', 
-        [key, surveyId, language]
-      );
+      const properties = await limesurveyAPI.getLanguageProperties(surveyId, language);
       logger.info('Successfully retrieved survey language properties', { 
         surveyId, 
         language 
@@ -329,25 +331,49 @@ server.tool(
   async () => {
     logger.info('Getting available languages');
     try {
-      const key = await limesurveyAPI.getSessionKey();
-      const settings = await limesurveyAPI.request(
-        'get_site_settings', 
-        [key, ['availablelanguages']]
-      );
-      
       let languages: string[] = [];
-      if (settings?.availablelanguages) {
+      const raw = await limesurveyAPI.getSiteSetting('availablelanguages');
+
+      logger.info('Raw availablelanguages setting received', {
+        type: typeof raw
+      });
+
+      if (Array.isArray(raw)) {
+        languages = raw.map(String);
+      } else if (typeof raw === 'string') {
+        // Try JSON first (some installations store JSON here)
         try {
-          languages = JSON.parse(settings.availablelanguages);
-          logger.info('Successfully parsed available languages', { 
-            languageCount: languages.length 
-          });
-        } catch (e) {
-          logger.error('Failed to parse available languages', { 
-            error: e instanceof Error ? e.message : String(e) 
-          });
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            languages = parsed.map(String);
+          } else {
+            languages = String(raw)
+              .split(/[,\s]+/)
+              .filter(Boolean);
+          }
+        } catch {
+          languages = String(raw)
+            .split(/[,\s]+/)
+            .filter(Boolean);
+        }
+      } else if (raw && typeof raw === 'object' && 'availablelanguages' in raw) {
+        // Backwards‑compatibility with previous (incorrect) client shape
+        const value = (raw as any).availablelanguages;
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+              languages = parsed.map(String);
+            }
+          } catch {
+            languages = String(value)
+              .split(/[,\s]+/)
+              .filter(Boolean);
+          }
         }
       }
+
+      logger.info('Parsed available languages', { languageCount: languages.length });
       
       return {
         content: [
@@ -357,7 +383,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(settings, null, 2)
+            text: JSON.stringify(raw, null, 2)
           }
         ]
       };
@@ -378,11 +404,10 @@ server.tool(
 
 /**
  * Tool to get survey languages
- * 
- * Corresponds to the get_survey_languages method in LimeSurvey Remote API
- * Documentation: https://api.limesurvey.org/classes/remotecontrol-handle.html#method_get_survey_languages
- * 
- * Returns available languages for a specific survey
+ *
+ * This LimeSurvey instance does not expose the get_survey_languages
+ * RemoteControl method in its remotecontrol_handle.php. Instead we derive
+ * the languages from survey properties (language + additional_languages).
  */
 server.tool(
   "getSurveyLanguages",
@@ -393,14 +418,23 @@ server.tool(
   async ({ surveyId }) => {
     logger.info('Getting survey languages', { surveyId });
     try {
-      const key = await limesurveyAPI.getSessionKey();
-      const languages = await limesurveyAPI.request(
-        'get_survey_languages', 
-        [key, surveyId]
-      );
-      logger.info('Successfully retrieved survey languages', { 
-        surveyId, 
-        languageCount: languages.length 
+      // This LimeSurvey instance does not expose get_survey_languages in RemoteControl;
+      // derive languages from survey properties instead.
+      const props = await limesurveyAPI.getSurveyProperties(surveyId, ['language', 'additional_languages']);
+      const baseLang = props?.language ? String(props.language) : null;
+      const additional = props?.additional_languages
+        ? String(props.additional_languages)
+            .split(/\s+/)
+            .filter(Boolean)
+        : [];
+      const languages = [
+        ...(baseLang ? [baseLang] : []),
+        ...additional
+      ];
+
+      logger.info('Successfully derived survey languages', {
+        surveyId,
+        languageCount: languages.length
       });
       return {
         content: [
@@ -437,13 +471,12 @@ server.tool(
   "Gets the field map for a survey (question code to SGQA mapping)",
   {
     surveyId: z.string().describe("The ID of the survey"),
-    language: z.string().optional().describe("Optional: language code for labels"),
-    forceRefresh: z.boolean().default(false).describe("Force regeneration of the field map cache")
+    language: z.string().optional().describe("Optional: language code for labels")
   },
-  async ({ surveyId, language, forceRefresh }) => {
-    logger.info('Getting field map', { surveyId, language: language || 'default', forceRefresh });
+  async ({ surveyId, language }) => {
+    logger.info('Getting field map', { surveyId, language: language || 'default' });
     try {
-      const fieldMap = await limesurveyAPI.getFieldMap(surveyId, language || null, forceRefresh);
+      const fieldMap = await limesurveyAPI.getFieldMap(surveyId, language || null);
       const count = fieldMap ? Object.keys(fieldMap).length : 0;
       return {
         content: [

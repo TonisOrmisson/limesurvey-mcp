@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 /**
  * Tool to get response count summary for a survey
@@ -220,6 +221,11 @@ server.tool(
     responseData: z.record(z.any()).describe("Response data as key/value map")
   },
   async ({ surveyId, responseData }) => {
+    const readonly = ensureWriteAllowed('addResponse');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Adding response', { surveyId });
     try {
       const responseId = await limesurveyAPI.addResponse(surveyId, responseData);
@@ -248,6 +254,11 @@ server.tool(
     responseData: z.record(z.any()).describe("Fields to update")
   },
   async ({ surveyId, responseId, responseData }) => {
+    const readonly = ensureWriteAllowed('updateResponse');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Updating response', { surveyId, responseId });
     try {
       const result = await limesurveyAPI.updateResponse(surveyId, responseId, responseData);
@@ -276,6 +287,11 @@ server.tool(
     confirmDeletion: z.literal(true).describe("Must be true to delete")
   },
   async ({ surveyId, responseId }) => {
+    const readonly = ensureWriteAllowed('deleteResponse');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.warn('Deleting response', { surveyId, responseId });
     try {
       const result = await limesurveyAPI.deleteResponse(surveyId, responseId);
@@ -353,12 +369,13 @@ server.tool(
     try {
       const exportData = await limesurveyAPI.exportResponsesByToken(
         surveyId,
-        token,
         documentType,
+        [token],
         language || null,
         completionStatus,
         headingType,
-        responseType
+        responseType,
+        null
       );
 
       const textFormats = ['csv', 'json', 'txt', 'html'];
@@ -394,32 +411,21 @@ server.tool(
  */
 server.tool(
   "exportTimeline",
-  "Exports response timeline",
+  "Exports aggregated response timeline (counts per day or hour)",
   {
     surveyId: z.string().describe("Survey ID"),
-    documentType: z.string().default('json').describe("Format (json or csv)"),
-    language: z.string().optional().describe("Language code"),
-    dateFrom: z.string().optional().describe("Optional start date (YYYY-MM-DD HH:mm:ss)"),
-    dateTo: z.string().optional().describe("Optional end date (YYYY-MM-DD HH:mm:ss)"),
-    decodeOutput: z.boolean().default(true).describe("Decode base64 for text formats")
+    period: z.enum(['day', 'hour']).default('day').describe("Aggregation period: 'day' or 'hour'"),
+    dateFrom: z.string().describe("Start date (YYYY-MM-DD HH:mm:ss)"),
+    dateTo: z.string().describe("End date (YYYY-MM-DD HH:mm:ss)")
   },
-  async ({ surveyId, documentType, language, dateFrom, dateTo, decodeOutput }) => {
-    logger.info('Exporting timeline', { surveyId, documentType, dateFrom, dateTo });
+  async ({ surveyId, period, dateFrom, dateTo }) => {
+    logger.info('Exporting timeline', { surveyId, period, dateFrom, dateTo });
     try {
-      const exportData = await limesurveyAPI.exportTimeline(surveyId, documentType, language || null, dateFrom || null, dateTo || null);
-      if (decodeOutput) {
-        const decoded = Buffer.from(exportData, 'base64').toString('utf-8');
-        const preview = decoded.substring(0, 1000) + (decoded.length > 1000 ? '\n...[truncated]' : '');
-        return {
-          content: [
-            { type: "text", text: `Timeline exported as ${documentType}` },
-            { type: "text", text: `Preview:\n${preview}` }
-          ]
-        };
-      }
-      const sizeKB = Math.round(exportData.length * 0.75 / 1024);
       return {
-        content: [{ type: "text", text: `Timeline exported as ${documentType} (base64, ~${sizeKB} KB)` }]
+        content: [
+          { type: "text", text: `Timeline for survey ${surveyId} (${period}) from ${dateFrom} to ${dateTo}` },
+          { type: "text", text: JSON.stringify(await limesurveyAPI.exportTimeline(surveyId, period, dateFrom, dateTo), null, 2) }
+        ]
       };
     } catch (error: any) {
       logger.error('Failed to export timeline', { surveyId, error: error?.message });
@@ -439,15 +445,24 @@ server.tool(
   "Uploads a file for a survey",
   {
     surveyId: z.string().describe("Survey ID"),
+    fieldName: z.string().describe("SGQA of the file upload question (e.g. 12345X1X2)"),
     fileName: z.string().describe("File name"),
     fileDataBase64: z.string().describe("File content base64")
   },
-  async ({ surveyId, fileName, fileDataBase64 }) => {
-    logger.info('Uploading file', { surveyId, fileName });
+  async ({ surveyId, fieldName, fileName, fileDataBase64 }) => {
+    const readonly = ensureWriteAllowed('uploadFile');
+    if (readonly) {
+      return readonly;
+    }
+
+    logger.info('Uploading file', { surveyId, fieldName, fileName });
     try {
-      const url = await limesurveyAPI.uploadFile(surveyId, fileDataBase64, fileName);
+      const metadata = await limesurveyAPI.uploadFile(surveyId, fieldName, fileDataBase64, fileName);
       return {
-        content: [{ type: "text", text: `File uploaded for survey ${surveyId}: ${url}` }]
+        content: [
+          { type: "text", text: `File uploaded for survey ${surveyId} on field ${fieldName}` },
+          { type: "text", text: JSON.stringify(metadata, null, 2) }
+        ]
       };
     } catch (error: any) {
       logger.error('Failed to upload file', { surveyId, fileName, error: error?.message });
@@ -466,15 +481,21 @@ server.tool(
   "listUploadedFiles",
   "Lists uploaded files for a survey",
   {
-    surveyId: z.string().describe("Survey ID")
+    surveyId: z.string().describe("Survey ID"),
+    token: z.string().describe("Participant token whose uploads to list"),
+    responseId: z.string().optional().describe("Optional response ID to narrow results")
   },
-  async ({ surveyId }) => {
-    logger.info('Listing uploaded files', { surveyId });
+  async ({ surveyId, token, responseId }) => {
+    logger.info('Listing uploaded files', { surveyId, token, responseId });
     try {
-      const files = await limesurveyAPI.getUploadedFiles(surveyId);
+      const files = await limesurveyAPI.getUploadedFiles(
+        surveyId,
+        token,
+        responseId ?? null
+      );
       return {
         content: [
-          { type: "text", text: `Uploaded files for survey ${surveyId}` },
+          { type: "text", text: `Uploaded files for survey ${surveyId} and token ${token}` },
           { type: "text", text: JSON.stringify(files, null, 2) }
         ]
       };

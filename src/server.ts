@@ -11,7 +11,7 @@ import fs from 'fs';
 dotenv.config();
 
 // Check if readonly mode is enabled
-const isReadOnlyMode = process.env.READONLY_MODE === 'true';
+export const isReadOnlyMode = process.env.READONLY_MODE === 'true';
 
 // Create an MCP server for LimeSurvey
 export const server = new McpServer({

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 /**
  * Tool to add a participant to a survey
@@ -25,6 +26,11 @@ server.tool(
     validUntil: z.string().optional().describe("Optional: Valid until date (YYYY-MM-DD HH:mm:ss)")
   },
   async ({ surveyId, email, firstName, lastName, language, usesLeft, validFrom, validUntil }) => {
+    const readonly = ensureWriteAllowed('addParticipant');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Adding participant to survey', { surveyId, email });
     try {
       // Create participant data object
@@ -88,10 +94,12 @@ server.tool(
   async ({ surveyId, start, limit, unused, attributes }) => {
     logger.info('Listing participants', { surveyId, start, limit, unused });
     try {
-      const key = await limesurveyAPI.getSessionKey();
-      const participants = await limesurveyAPI.request(
-        'list_participants', 
-        [key, surveyId, start, limit, unused, attributes || false]
+      const participants = await limesurveyAPI.listParticipants(
+        surveyId,
+        start,
+        limit,
+        unused,
+        attributes || false
       );
       logger.info('Successfully retrieved participants', { 
         surveyId, 
@@ -141,10 +149,10 @@ server.tool(
   async ({ surveyId, tokenId, attributes }) => {
     logger.info('Getting participant properties', { surveyId, tokenId });
     try {
-      const key = await limesurveyAPI.getSessionKey();
-      const properties = await limesurveyAPI.request(
-        'get_participant_properties', 
-        [key, surveyId, tokenId, attributes || null]
+      const properties = await limesurveyAPI.getParticipantProperties(
+        surveyId,
+        tokenId,
+        attributes || null
       );
       logger.info('Successfully retrieved participant properties', { surveyId, tokenId });
       return {
@@ -197,6 +205,11 @@ server.tool(
       createToken: z.boolean().default(true).describe("Whether to create tokens (default: true)")
     },
     async ({ surveyId, participants, createToken }) => {
+      const readonly = ensureWriteAllowed('addMultipleParticipants');
+      if (readonly) {
+        return readonly;
+      }
+
       logger.info('Adding multiple participants', { 
         surveyId, 
         participantCount: participants.length,
@@ -325,6 +338,11 @@ server.tool(
       confirmDeletion: z.literal(true).describe("Confirmation that you want to delete the participants (must be true)")
     },
     async ({ surveyId, tokens, confirmDeletion }) => {
+      const readonly = ensureWriteAllowed('deleteParticipants');
+      if (readonly) {
+        return readonly;
+      }
+
       logger.info('Attempting to delete participants', { 
         surveyId, 
         tokenCount: tokens.length 
@@ -392,6 +410,11 @@ server.tool(
     continueOnError: z.boolean().default(false).describe("Do not stop on first invalid participant")
   },
   async ({ surveyId, tokenIds, sendEmail, continueOnError }) => {
+    const readonly = ensureWriteAllowed('inviteParticipants');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Inviting participants', {
       surveyId,
       tokenIdsCount: tokenIds?.length ?? 'all',
@@ -450,6 +473,11 @@ server.tool(
     continueOnError: z.boolean().default(false).describe("Do not stop on first invalid participant")
   },
   async ({ surveyId, minDaysBetween, maxReminders, tokenIds, continueOnError }) => {
+    const readonly = ensureWriteAllowed('remindParticipants');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Sending participant reminders', {
       surveyId,
       minDaysBetween: minDaysBetween ?? 'default',

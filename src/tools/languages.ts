@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 /**
  * Adds an additional language to a survey.
@@ -16,6 +17,11 @@ server.tool(
     language: z.string().describe('Language code to add (e.g. "de", "fr")')
   },
   async ({ surveyId, language }) => {
+    const readonly = ensureWriteAllowed('addSurveyLanguage');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Adding survey language', { surveyId, language });
     try {
       const result = await limesurveyAPI.addLanguage(surveyId, language);
@@ -52,6 +58,11 @@ server.tool(
     confirmDeletion: z.literal(true).describe('Must be true to delete this language')
   },
   async ({ surveyId, language }) => {
+    const readonly = ensureWriteAllowed('deleteSurveyLanguage');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.warn('Deleting survey language', { surveyId, language });
     try {
       const result = await limesurveyAPI.deleteLanguage(surveyId, language);
@@ -95,6 +106,11 @@ server.tool(
       )
   },
   async ({ surveyId, language, localeData }) => {
+    const readonly = ensureWriteAllowed('setSurveyLanguageProperties');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Setting survey language properties', {
       surveyId,
       language: language || 'base',
@@ -153,4 +169,3 @@ server.tool(
 );
 
 logger.info('Language tools registered!');
-

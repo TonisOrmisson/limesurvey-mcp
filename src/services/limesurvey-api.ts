@@ -115,6 +115,26 @@ class LimeSurveyAPI {
   }
 
   /**
+   * Get a single site setting value.
+   *
+   * RemoteControl: get_site_settings($sessionKey, $settingName)
+   */
+  async getSiteSetting(settingName: string): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('get_site_settings', [key, settingName]);
+  }
+
+  /**
+   * Get the list of available site settings.
+   *
+   * RemoteControl: get_available_site_settings($sessionKey)
+   */
+  async getAvailableSiteSettings(): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('get_available_site_settings', [key]);
+  }
+
+  /**
    * List surveys
    * @returns {Promise<Array>} - List of surveys
    */
@@ -126,11 +146,15 @@ class LimeSurveyAPI {
   /**
    * Get survey properties
    * @param {number|string} surveyId - The survey ID
+   * @param {string[]|null} settings - Optional list of property names to request
    * @returns {Promise<Object>} - The survey properties
    */
-  async getSurveyProperties(surveyId: number | string): Promise<any> {
+  async getSurveyProperties(
+    surveyId: number | string,
+    settings: string[] | null = null
+  ): Promise<any> {
     const key = await this.getSessionKey();
-    return this.request('get_survey_properties', [key, surveyId]);
+    return this.request('get_survey_properties', [key, surveyId, settings]);
   }
 
   /**
@@ -337,16 +361,20 @@ class LimeSurveyAPI {
    * Import a survey archive
    * @param {string} surveyFile - Base64 encoded string containing the survey structure
    * @param {string} importName - The name to use for the survey after import
-   * @param {number} ownerId - Optional: The owner ID for the survey
+   * Note: The underlying RemoteControl import_survey method does not accept an owner ID;
+   * ownership is determined by the authenticated user.
    * @returns {Promise<number>} - Survey ID of the imported survey
    */
   async importSurvey(
     surveyFile: string,
-    importName: string,
-    ownerId: number | null = null
+    importName: string
   ): Promise<number> {
     const key = await this.getSessionKey();
-    return this.request('import_survey', [key, surveyFile, importName, ownerId]);
+    // RemoteControl: import_survey($sessionKey, $sImportData, $sImportDataType, $sNewSurveyName = null, $DestSurveyID = null)
+    const importDataType = 'lss';
+    const newSurveyName = importName;
+    const destSurveyId: number | null = null;
+    return this.request('import_survey', [key, surveyFile, importDataType, newSurveyName, destSurveyId]);
   }
 
   /**
@@ -398,14 +426,30 @@ class LimeSurveyAPI {
 
   /**
    * Import a survey group
+   * @param {number|string} surveyId - The survey ID the group belongs to
    * @param {string} importData - Base64 encoded string containing the survey group structure
-   * @param {string} importName - The name to use for the survey group after import
-   * @param {string} importVersion - Optional: The version to use (default null = detect)
+   * @param {string} importDataType - Import type/extension (e.g. lsg, lss, csv, txt)
+   * @param {string|null} newGroupName - Optional: New group name
+   * @param {string|null} newGroupDescription - Optional: New group description
    * @returns {Promise<any>} - Import status
    */
-  async importGroup(importData: string, importName: string, importVersion: string | null = null): Promise<any> {
+  async importGroup(
+    surveyId: number | string,
+    importData: string,
+    importDataType: string = 'lsg',
+    newGroupName: string | null = null,
+    newGroupDescription: string | null = null
+  ): Promise<any> {
     const key = await this.getSessionKey();
-    return this.request('import_group', [key, importData, importName, importVersion]);
+    // RemoteControl: import_group($sessionKey, $iSurveyID, $sImportData, $sImportDataType, $sNewGroupName = null, $sNewGroupDescription = null)
+    return this.request('import_group', [
+      key,
+      surveyId,
+      importData,
+      importDataType,
+      newGroupName,
+      newGroupDescription
+    ]);
   }
 
 
@@ -445,7 +489,10 @@ class LimeSurveyAPI {
     responseData: Record<string, any>
   ): Promise<string> {
     const key = await this.getSessionKey();
-    return this.request('update_response', [key, surveyId, responseId, responseData]);
+    // RemoteControl: update_response($sessionKey, $iSurveyID, $aResponseData)
+    // $aResponseData must contain either 'id' or 'token' in addition to the updated fields.
+    const payload = { id: responseId, ...responseData };
+    return this.request('update_response', [key, surveyId, payload]);
   }
 
   /**
@@ -461,23 +508,25 @@ class LimeSurveyAPI {
    */
   async exportResponsesByToken(
     surveyId: number | string,
-    token: string,
     documentType: string,
+    tokens: Array<number | string>,
     language: string | null = null,
     completionStatus: string = 'all',
     headingType: string = 'code',
-    responseType: string = 'short'
+    responseType: string = 'short',
+    fields: string[] | null = null
   ): Promise<string> {
     const key = await this.getSessionKey();
     return this.request('export_responses_by_token', [
       key,
       surveyId,
-      token,
       documentType,
+      tokens,
       language,
       completionStatus,
       headingType,
-      responseType
+      responseType,
+      fields
     ]);
   }
 
@@ -486,13 +535,13 @@ class LimeSurveyAPI {
    */
   async exportTimeline(
     surveyId: number | string,
-    documentType: string = 'json',
-    language: string | null = null,
-    dateFrom: string | null = null,
-    dateTo: string | null = null
-  ): Promise<string> {
+    period: 'day' | 'hour',
+    dateFrom: string,
+    dateTo: string
+  ): Promise<any> {
     const key = await this.getSessionKey();
-    return this.request('export_timeline', [key, surveyId, documentType, language, dateFrom, dateTo]);
+    // RemoteControl: export_timeline($sessionKey, $iSurveyID, $sType, $dStart, $dEnd)
+    return this.request('export_timeline', [key, surveyId, period, dateFrom, dateTo]);
   }
 
   /**
@@ -500,33 +549,47 @@ class LimeSurveyAPI {
    */
   async getFieldMap(
     surveyId: number | string,
-    language: string | null = null,
-    forceRefresh: boolean = false
+    language: string | null = null
   ): Promise<any> {
     const key = await this.getSessionKey();
-    return this.request('get_fieldmap', [key, surveyId, language, forceRefresh]);
+    // RemoteControl: get_fieldmap($sessionKey, $surveyId, $language = null)
+    return this.request('get_fieldmap', [key, surveyId, language]);
   }
 
   /**
    * Upload a file for a survey
    * @param {number|string} surveyId - The survey ID
+   * @param {string} fieldName - The SGQA code of the file upload question
    * @param {string} fileData - Base64 encoded file content
    * @param {string} fileName - The name of the file
-   * @returns {Promise<string>} - The relative URL to the file in the survey
+   * @returns {Promise<any>} - File metadata from LimeSurvey
    */
-  async uploadFile(surveyId: number | string, fileData: string, fileName: string): Promise<string> {
+  async uploadFile(
+    surveyId: number | string,
+    fieldName: string,
+    fileData: string,
+    fileName: string
+  ): Promise<any> {
     const key = await this.getSessionKey();
-    return this.request('upload_file', [key, surveyId, fileData, fileName]);
+    // RemoteControl: upload_file($sessionKey, $iSurveyID, $sFieldName, $sFileName, $sFileContent)
+    return this.request('upload_file', [key, surveyId, fieldName, fileName, fileData]);
   }
 
   /**
    * Get uploaded files for a survey
    * @param {number|string} surveyId - The survey ID
+   * @param {string} token - Participant token
+   * @param {number|string|null} responseId - Optional response ID
    * @returns {Promise<Object>} - List of files
    */
-  async getUploadedFiles(surveyId: number | string): Promise<any> {
+  async getUploadedFiles(
+    surveyId: number | string,
+    token: string,
+    responseId: number | string | null = null
+  ): Promise<any> {
     const key = await this.getSessionKey();
-    return this.request('get_uploaded_files', [key, surveyId]);
+    // RemoteControl: get_uploaded_files($sSessionKey, $iSurveyID, $sToken, $responseId = null)
+    return this.request('get_uploaded_files', [key, surveyId, token, responseId]);
   }
 
   /**
@@ -549,6 +612,27 @@ class LimeSurveyAPI {
   ): Promise<any[]> {
     const key = await this.getSessionKey();
     return this.request('list_participants', [key, surveyId, iStart, iLimit, bUnused, aAttributes, aConditions]);
+  }
+
+  /**
+   * Get settings of a survey participant (token).
+   *
+   * RemoteControl: get_participant_properties(
+   *   $sessionKey, $iSurveyID, $aTokenQueryProperties, $aTokenProperties = null
+   * )
+   */
+  async getParticipantProperties(
+    surveyId: number | string,
+    tokenQuery: number | string | Record<string, any>,
+    properties: string[] | null = null
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('get_participant_properties', [
+      key,
+      surveyId,
+      tokenQuery,
+      properties
+    ]);
   }
 
   /**
@@ -622,22 +706,6 @@ class LimeSurveyAPI {
   }
 
   /**
-   * Get a questionnaire definition in JSON format
-   * @param {number|string} surveyId - The survey ID
-   * @param {string|null} language - Optional: Language code (if null, uses the base language)
-   * @param {boolean} includeTokens - Optional: Whether to include tokens (default: false)
-   * @returns {Promise<Object>} - Questionnaire definition
-   */
-  async getQuestionnaireDefinition(
-    surveyId: number | string,
-    language: string | null = null,
-    includeTokens: boolean = false
-  ): Promise<any> {
-    const key = await this.getSessionKey();
-    return this.request('get_questionnaire_definition', [key, surveyId, language, includeTokens]);
-  }
-
-  /**
    * Get properties of a single quota.
    *
    * Wraps the `get_quota_properties` RemoteControl method:
@@ -703,6 +771,23 @@ class LimeSurveyAPI {
   async deleteQuota(quotaId: number | string): Promise<any> {
     const key = await this.getSessionKey();
     return this.request('delete_quota', [key, quotaId]);
+  }
+
+  /**
+   * Add a new language to a survey.
+   *
+   * @param {number|string} surveyId - The survey ID
+   * @param {string} language - Language code to add (e.g. "de", "fr")
+   * @returns {Promise<any>} - Language addition result
+   */
+  async getLanguageProperties(
+    surveyId: number | string,
+    language: string | null = null,
+    settings: string[] | null = null
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    // RemoteControl: get_language_properties($sessionKey, $iSurveyID, $aSurveyLocaleSettings = null, $sLang = null)
+    return this.request('get_language_properties', [key, surveyId, settings, language]);
   }
 
   /**

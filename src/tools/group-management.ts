@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 /**
  * Sets properties on a specific question group.
@@ -21,6 +22,11 @@ server.tool(
       )
   },
   async ({ groupId, properties }) => {
+    const readonly = ensureWriteAllowed('setGroupProperties');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Setting group properties', {
       groupId,
       propertyKeys: Object.keys(properties || {})

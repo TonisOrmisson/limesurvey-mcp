@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 // Add a new (empty) survey
 server.tool(
@@ -13,6 +14,11 @@ server.tool(
     format: z.enum(['A', 'G', 'S']).default('G').describe("Question display format: 'A'll, 'G'roup, 'S'ingle")
   },
   async ({ title, language, format }) => {
+    const readonly = ensureWriteAllowed('addSurvey');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Creating survey', { title, language, format });
     try {
       const surveyId = await limesurveyAPI.addSurvey(title, language, format);
@@ -37,12 +43,17 @@ server.tool(
   {
     surveyFileBase64: z.string().describe('Base64-encoded LSS archive'),
     importName: z.string().describe('Name to use for the imported survey'),
-    ownerId: z.number().optional().describe('Optional owner user ID')
+    ownerId: z.number().optional().describe('Optional owner user ID (not all LimeSurvey versions support overriding owner via RemoteControl; in this instance it is ignored)')
   },
   async ({ surveyFileBase64, importName, ownerId }) => {
+    const readonly = ensureWriteAllowed('importSurvey');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Importing survey', { importName, ownerId });
     try {
-      const surveyId = await limesurveyAPI.importSurvey(surveyFileBase64, importName, ownerId ?? null);
+      const surveyId = await limesurveyAPI.importSurvey(surveyFileBase64, importName);
       logger.info('Survey imported', { surveyId });
       return {
         content: [{ type: 'text', text: `Survey imported as ID ${surveyId}` }]
@@ -66,6 +77,11 @@ server.tool(
     newName: z.string().optional().describe('Optional new survey name')
   },
   async ({ surveyId, newName }) => {
+    const readonly = ensureWriteAllowed('copySurvey');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Copying survey', { surveyId, newName });
     try {
       const rawResult = await limesurveyAPI.copySurvey(surveyId, newName || null);
@@ -95,6 +111,11 @@ server.tool(
     confirmDeletion: z.literal(true).describe('Must be true to proceed')
   },
   async ({ surveyId }) => {
+    const readonly = ensureWriteAllowed('deleteSurvey');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.warn('Deleting survey', { surveyId });
     try {
       const result = await limesurveyAPI.deleteSurvey(surveyId);
@@ -122,6 +143,11 @@ server.tool(
     surveyId: z.string().describe('Survey ID to activate tokens for')
   },
   async ({ surveyId }) => {
+    const readonly = ensureWriteAllowed('activateTokens');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Activating tokens', { surveyId });
     try {
       const result = await limesurveyAPI.activateTokens(surveyId);
@@ -154,6 +180,11 @@ server.tool(
       )
   },
   async ({ surveyId, properties }) => {
+    const readonly = ensureWriteAllowed('setSurveyProperties');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Setting survey properties', {
       surveyId,
       propertyKeys: Object.keys(properties || {})

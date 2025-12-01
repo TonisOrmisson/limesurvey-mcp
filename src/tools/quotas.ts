@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 /**
  * Adds a new quota to a survey.
@@ -19,6 +20,11 @@ server.tool(
     limit: z.number().int().nonnegative().describe('Maximum number of responses for this quota')
   },
   async ({ surveyId, name, limit }) => {
+    const readonly = ensureWriteAllowed('addQuota');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Adding quota', { surveyId, name, limit });
     try {
       const result = await limesurveyAPI.addQuota(surveyId, name, limit);
@@ -112,6 +118,11 @@ server.tool(
       )
   },
   async ({ quotaId, properties }) => {
+    const readonly = ensureWriteAllowed('setQuotaProperties');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.info('Setting quota properties', { quotaId, propertiesKeys: Object.keys(properties || {}) });
 
     if (!properties || Object.keys(properties).length === 0) {
@@ -158,6 +169,11 @@ server.tool(
     confirmDeletion: z.literal(true).describe('Must be true to delete this quota')
   },
   async ({ quotaId }) => {
+    const readonly = ensureWriteAllowed('deleteQuota');
+    if (readonly) {
+      return readonly;
+    }
+
     logger.warn('Deleting quota', { quotaId });
     try {
       const result = await limesurveyAPI.deleteQuota(quotaId);
