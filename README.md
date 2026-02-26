@@ -95,6 +95,7 @@ undocumented endpoints).
 | Questions           | `get_question_properties`    | `getQuestionProperties`    | read‑only                              |
 | Questions           | `set_question_properties`    | `setQuestionProperties`    | write (guarded)                        |
 | Responses           | `get_summary`                | `getResponseSummary`       | read‑only                              |
+| Responses           | `list_response_exports`      | `listResponseExportFormats`| read‑only discovery (plugin‑aware)     |
 | Responses           | `export_responses`           | `exportResponses`          | read‑only export                       |
 | Responses           | `add_response`               | `addResponse`              | write (guarded)                        |
 | Responses           | `update_response`            | `updateResponse`           | write (guarded)                        |
@@ -356,13 +357,29 @@ Gets summary information about a survey's collected responses.
 **Returns**:
 - Summary object containing information about response counts and status
 
+#### listResponseExportFormats
+
+Lists available response export formats for a survey, including plugin-provided types.
+
+**Parameters**:
+- `surveyId`: The ID of the survey
+
+**Returns**:
+- A list of export format objects with:
+  - `type`
+  - `pluginClass`
+  - `label` (nullable)
+  - `tooltip` (nullable)
+  - `onclick` (nullable)
+  - `isDefault` (boolean)
+
 #### exportResponses
 
 Exports responses from a survey in the specified format.
 
 **Parameters**:
 - `surveyId`: The ID of the survey
-- `documentType`: Format of the export (csv, xls, pdf, html, json) - default: "csv"
+- `documentType`: Export format type (dynamic/plugin-aware). Call `listResponseExportFormats` first - default: "csv"
 - `language` (optional): Language for response export
 - `completionStatus`: Filter by completion status ('complete', 'incomplete', 'all') - default: "all"
 - `headingType`: Type of headings ('code', 'full', 'abbreviated') - default: "code"
@@ -371,6 +388,24 @@ Exports responses from a survey in the specified format.
 
 **Returns**:
 - Exported data in the requested format
+
+#### Discovery-first export workflow
+
+1. Call `listResponseExportFormats` to discover valid `type` values for the target survey.
+2. Pick one returned `type` (for example `csv`, `json`, or a custom plugin format).
+3. Call `exportResponses` with that `documentType`.
+
+**Example**:
+```yaml
+tool: listResponseExportFormats
+args:
+  surveyId: "123456"
+---
+tool: exportResponses
+args:
+  surveyId: "123456"
+  documentType: "csv"
+```
 
 #### listResponses
 

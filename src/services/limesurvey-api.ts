@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Get environment variables
-const LIMESURVEY_API_URL = process.env.LIMESURVEY_API_URL || 'http://localhost/limesurvey/index.php/admin/remotecontrol';
+const LIMESURVEY_API_URL = process.env.LIMESURVEY_API_URL;
 const LIMESURVEY_USERNAME = process.env.LIMESURVEY_USERNAME;
 const LIMESURVEY_PASSWORD = process.env.LIMESURVEY_PASSWORD;
 
@@ -37,6 +37,10 @@ class LimeSurveyAPI {
    * Constructor
    */
   constructor() {
+    if (!LIMESURVEY_API_URL) {
+      throw new Error('LIMESURVEY_API_URL environment variable is required');
+    }
+
     this.client = axios.create({
       baseURL: LIMESURVEY_API_URL,
       headers: {
@@ -247,6 +251,16 @@ class LimeSurveyAPI {
   async getResponseCount(surveyId: number | string): Promise<any> {
     const key = await this.getSessionKey();
     return this.request('get_summary', [key, surveyId]);
+  }
+
+  /**
+   * List response export formats available for a survey.
+   *
+   * RemoteControl: list_response_exports($sessionKey, $iSurveyID)
+   */
+  async listResponseExports(surveyId: number | string): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('list_response_exports', [key, surveyId]);
   }
 
   /**
