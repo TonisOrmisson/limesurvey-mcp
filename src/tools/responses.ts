@@ -4,6 +4,15 @@ import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
+type ResponseExportFormat = {
+  type: string;
+  pluginClass: string;
+  label: string | null;
+  tooltip: string | null;
+  onclick: string | null;
+  isDefault: boolean;
+};
+
 /**
  * Tool to get response count summary for a survey
  * 
@@ -54,6 +63,66 @@ server.tool(
   }
 );
 
+export async function listResponseExportFormatsHandler({ surveyId }: { surveyId: string }) {
+  const textContent = (text: string) => ({ type: "text" as const, text });
+
+  logger.info('Listing response export formats', { surveyId });
+  try {
+    const exportsResult = await limesurveyAPI.listResponseExports(surveyId);
+
+    if (!Array.isArray(exportsResult)) {
+      const status = typeof exportsResult?.status === 'string'
+        ? exportsResult.status
+        : 'Unexpected response format';
+      logger.error('Failed to list response export formats', { surveyId, error: status });
+      return {
+        content: [
+          textContent(`Error listing response export formats: ${status}`),
+          textContent(JSON.stringify(exportsResult, null, 2))
+        ],
+        isError: true
+      };
+    }
+
+    const responseExports = exportsResult as ResponseExportFormat[];
+    const defaultTypes = responseExports.filter((item) => item.isDefault).map((item) => item.type);
+    const defaultSummary = defaultTypes.length > 0
+      ? ` Default format(s): ${defaultTypes.join(', ')}.`
+      : '';
+
+    logger.info('Successfully listed response export formats', {
+      surveyId,
+      formatCount: responseExports.length,
+      defaultCount: defaultTypes.length
+    });
+
+    return {
+      content: [
+        textContent(`Response export formats for survey ID ${surveyId}: ${responseExports.length} format(s).${defaultSummary}`),
+        textContent(JSON.stringify(responseExports, null, 2))
+      ]
+    };
+  } catch (error: any) {
+    logger.error('Failed to list response export formats', {
+      surveyId,
+      error: error?.message
+    });
+    return {
+      content: [textContent(`Error listing response export formats: ${error?.message || 'Unknown error'}`)],
+      isError: true
+    };
+  }
+}
+
+server.tool(
+  "listResponseExportFormats",
+  "Lists discoverable response export formats for a survey, including plugin-provided formats",
+  {
+    surveyId: z.string().describe("The ID of the survey")
+  },
+  listResponseExportFormatsHandler
+);
+
 /**
  * Tool to export responses from a survey with base64 encoding
  * 
@@ -64,10 +133,10 @@ server.tool(
  */
 server.tool(
   "exportResponses",
-  "Exports responses from a survey in the specified format",
+  "Exports responses from a survey in the specified format. Call listResponseExportFormats first to discover valid formats.",
   {
     surveyId: z.string().describe("The ID of the survey"),
-    documentType: z.string().default("csv").describe("Format of the export (csv, xls, pdf, html, json)"),
+    documentType: z.string().default("csv").describe("Format type to export. Dynamic/plugin-aware; call listResponseExportFormats first."),
     language: z.string().optional().describe("Optional: Language for response export"),
     completionStatus: z.enum(['complete', 'incomplete', 'all']).default('all').describe("Filter by completion status"),
     headingType: z.enum(['code', 'full', 'abbreviated']).default('code').describe("Type of headings"),

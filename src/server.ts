@@ -89,6 +89,7 @@ export function logRegisteredTools() {
     ],
     'responses.ts': [
       'getResponseSummary',
+      'listResponseExportFormats',
       'exportResponses',
       'addResponse',
       'updateResponse',
