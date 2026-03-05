@@ -14,6 +14,8 @@ const logger = winston.createLogger({
   transports: [
     // Write all logs to console
     new winston.transports.Console({
+      // MCP stdio transport uses stdout for protocol frames; route all app logs to stderr.
+      stderrLevels: ['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'],
       format: winston.format.combine(
         winston.format.colorize(),
         winston.format.printf(({ timestamp, level, message, ...meta }) => {

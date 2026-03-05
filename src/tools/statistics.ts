@@ -82,4 +82,4 @@ server.tool(
   }
 );
 
-console.log("Statistics tools registered!");
+console.error("Statistics tools registered!");

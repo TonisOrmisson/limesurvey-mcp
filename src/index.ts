@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Print application header
-console.log(`
+console.error(`
 ╔════════════════════════════════════╗
 ║ LimeSurvey MCP Server              ║
 ║ Version: 1.0.0                     ║
