@@ -13,6 +13,59 @@ type ResponseExportFormat = {
   isDefault: boolean;
 };
 
+type TextContent = {
+  type: "text";
+  text: string;
+};
+
+const textFormats = ['csv', 'json', 'txt', 'html'];
+
+function textContent(text: string): TextContent {
+  return { type: "text", text };
+}
+
+function buildExportPayloadContent(
+  exportData: string,
+  documentType: string,
+  decodeOutput: boolean,
+  summaryLine: string
+): TextContent[] {
+  const normalizedDocumentType = documentType.toLowerCase();
+  const isBinaryFormat = !textFormats.includes(normalizedDocumentType);
+  const payloadLabel = isBinaryFormat || !decodeOutput ? 'Base64 payload' : 'Raw base64 payload';
+  const content: TextContent[] = [textContent(summaryLine)];
+
+  if (decodeOutput && !isBinaryFormat && exportData) {
+    try {
+      const decodedData = Buffer.from(exportData, 'base64').toString('utf-8');
+      let previewText = '';
+
+      if (normalizedDocumentType === 'json') {
+        try {
+          previewText = JSON.stringify(JSON.parse(decodedData), null, 2).substring(0, 1000);
+        } catch {
+          previewText = decodedData.substring(0, 1000);
+        }
+      } else {
+        previewText = decodedData.substring(0, 1000);
+      }
+
+      if (decodedData.length > 1000) {
+        previewText += '\n...[truncated]';
+      }
+
+      content.push(textContent(`Preview of exported data:\n\n${previewText}`));
+    } catch (error) {
+      content.push(
+        textContent(`Failed to decode base64 data: ${error instanceof Error ? error.message : String(error)}`)
+      );
+    }
+  }
+
+  content.push(textContent(`${payloadLabel}:\n${exportData}`));
+  return content;
+}
+
 /**
  * Tool to get response count summary for a survey
  * 
@@ -64,8 +117,6 @@ server.tool(
 );
 
 export async function listResponseExportFormatsHandler({ surveyId }: { surveyId: string }) {
-  const textContent = (text: string) => ({ type: "text" as const, text });
-
   logger.info('Listing response export formats', { surveyId });
   try {
     const exportsResult = await limesurveyAPI.listResponseExports(surveyId);
@@ -131,6 +182,84 @@ server.tool(
  * 
  * Returns response data in the specified format as a base64-encoded string or decoded content
  */
+type ExportResponsesArgs = {
+  surveyId: string;
+  documentType: string;
+  language?: string;
+  completionStatus: 'complete' | 'incomplete' | 'all';
+  headingType: 'code' | 'full' | 'abbreviated';
+  responseType: 'short' | 'long';
+  fromResponseId?: number;
+  toResponseId?: number;
+  fields?: string[];
+  additionalOptions?: Record<string, any>;
+  decodeOutput: boolean;
+};
+
+export async function exportResponsesHandler({
+  surveyId,
+  documentType,
+  language,
+  completionStatus,
+  headingType,
+  responseType,
+  fromResponseId,
+  toResponseId,
+  fields,
+  additionalOptions,
+  decodeOutput
+}: ExportResponsesArgs) {
+  logger.info('Exporting responses', {
+    surveyId,
+    documentType,
+    language: language || 'default',
+    completionStatus,
+    responseType,
+    fromResponseId: fromResponseId || 'start',
+    toResponseId: toResponseId || 'end'
+  });
+  try {
+    const exportData = await limesurveyAPI.exportResponses(
+      surveyId,
+      documentType,
+      language || null,
+      completionStatus,
+      headingType,
+      responseType,
+      fromResponseId || null,
+      toResponseId || null,
+      fields || null,
+      additionalOptions || null
+    );
+    const sizeKB = Math.round(exportData.length * 0.75 / 1024);
+    logger.info('Successfully exported responses', {
+      surveyId,
+      documentType,
+      sizeKB,
+      decodeOutput
+    });
+
+    return {
+      content: buildExportPayloadContent(
+        exportData,
+        documentType,
+        decodeOutput,
+        `Responses for survey ID ${surveyId} exported successfully as ${documentType} (base64 encoded, ~${sizeKB} KB)`
+      )
+    };
+  } catch (error: any) {
+    logger.error('Failed to export responses', {
+      surveyId,
+      documentType,
+      error: error?.message
+    });
+    return {
+      content: [textContent(`Error exporting responses: ${error?.message || 'Unknown error'}`)],
+      isError: true
+    };
+  }
+}
+
 server.tool(
   "exportResponses",
   "Exports responses from a survey in the specified format. Call listResponseExportFormats first to discover valid formats.",
@@ -147,134 +276,7 @@ server.tool(
     additionalOptions: z.record(z.any()).optional().describe("Optional: Additional options for export formatting"),
     decodeOutput: z.boolean().default(true).describe("Whether to decode the base64 output for text formats")
   },
-  async ({ surveyId, documentType, language, completionStatus, headingType, responseType, 
-           fromResponseId, toResponseId, fields, additionalOptions, decodeOutput }) => {
-    logger.info('Exporting responses', { 
-      surveyId, 
-      documentType,
-      language: language || 'default',
-      completionStatus,
-      responseType,
-      fromResponseId: fromResponseId || 'start',
-      toResponseId: toResponseId || 'end'
-    });
-    try {
-      const exportData = await limesurveyAPI.exportResponses(
-        surveyId, 
-        documentType, 
-        language || null, 
-        completionStatus, 
-        headingType, 
-        responseType,
-        fromResponseId || null,
-        toResponseId || null,
-        fields || null,
-        additionalOptions || null
-      );
-      
-      // Check if we need to decode the base64 data
-      let resultContent;
-      let previewText = '';
-      
-      // Binary formats should remain base64 encoded, text formats can be decoded
-      const textFormats = ['csv', 'json', 'txt', 'html'];
-      const isBinaryFormat = !textFormats.includes(documentType.toLowerCase());
-      
-      if (decodeOutput && !isBinaryFormat && exportData) {
-        try {
-          // Decode base64 data for text formats
-          const decodedData = Buffer.from(exportData, 'base64').toString('utf-8');
-          
-          // Create a preview of the data
-          if (documentType.toLowerCase() === 'json') {
-            try {
-              const jsonData = JSON.parse(decodedData);
-              previewText = JSON.stringify(jsonData, null, 2).substring(0, 1000);
-            } catch (e) {
-              previewText = decodedData.substring(0, 1000);
-            }
-          } else {
-            previewText = decodedData.substring(0, 1000);
-          }
-          
-          // Add ellipsis if data was truncated
-          if (decodedData.length > 1000) {
-            previewText += '\n...[truncated]';
-          }
-          
-          logger.info('Successfully exported and decoded responses', { 
-            surveyId,
-            documentType,
-            dataSize: decodedData.length
-          });
-          
-          resultContent = [
-            { 
-              type: "text", 
-              text: `Responses for survey ID ${surveyId} exported successfully as ${documentType}` 
-            },
-            {
-              type: "text", 
-              text: `Preview of exported data:\n\n${previewText}`
-            }
-          ];
-        } catch (e) {
-          // Fall back to base64 if decoding fails
-          const sizeKB = Math.round(exportData.length * 0.75 / 1024);
-          logger.warn('Failed to decode exported responses', { 
-            surveyId,
-            documentType,
-            error: e instanceof Error ? e.message : String(e),
-            sizeKB
-          });
-          resultContent = [
-            { 
-              type: "text", 
-              text: `Responses for survey ID ${surveyId} exported successfully as ${documentType} (base64 encoded, ~${sizeKB} KB)`
-            },
-            {
-              type: "text", 
-              text: `Failed to decode base64 data: ${e instanceof Error ? e.message : String(e)}`
-            }
-          ];
-        }
-      } else {
-        // Return base64 encoded data info for binary formats or when decoding is disabled
-        const sizeKB = Math.round(exportData.length * 0.75 / 1024);
-        logger.info('Successfully exported responses (base64 encoded)', { 
-          surveyId,
-          documentType,
-          sizeKB
-        });
-        resultContent = [
-          { 
-            type: "text", 
-            text: `Responses for survey ID ${surveyId} exported successfully as ${documentType} (base64 encoded, ~${sizeKB} KB)`
-          }
-        ];
-      }
-      
-      return {
-        content: resultContent.map(item => ({
-          type: "text",
-          text: item.text
-        }))
-      };
-    } catch (error: any) {
-      logger.error('Failed to export responses', { 
-        surveyId,
-        documentType,
-        error: error?.message 
-      });
-      return {
-        content: [{ 
-          type: "text", 
-          text: `Error exporting responses: ${error?.message || 'Unknown error'}` 
-        }],
-        isError: true
-      };
-    }
-  }
+  exportResponsesHandler
 );
 
 logger.info("Responses tools registered!");
@@ -420,6 +422,58 @@ server.tool(
 /**
  * Export responses by token
  */
+type ExportResponsesByTokenArgs = {
+  surveyId: string;
+  token: string;
+  documentType: string;
+  language?: string;
+  completionStatus: 'complete' | 'incomplete' | 'all';
+  headingType: 'code' | 'full' | 'abbreviated';
+  responseType: 'short' | 'long';
+  decodeOutput: boolean;
+};
+
+export async function exportResponsesByTokenHandler({
+  surveyId,
+  token,
+  documentType,
+  language,
+  completionStatus,
+  headingType,
+  responseType,
+  decodeOutput
+}: ExportResponsesByTokenArgs) {
+  logger.info('Exporting responses by token', { surveyId, token, documentType });
+  try {
+    const exportData = await limesurveyAPI.exportResponsesByToken(
+      surveyId,
+      documentType,
+      [token],
+      language || null,
+      completionStatus,
+      headingType,
+      responseType,
+      null
+    );
+
+    const sizeKB = Math.round(exportData.length * 0.75 / 1024);
+    return {
+      content: buildExportPayloadContent(
+        exportData,
+        documentType,
+        decodeOutput,
+        `Responses for token ${token} exported as ${documentType} (base64 encoded, ~${sizeKB} KB)`
+      )
+    };
+  } catch (error: any) {
+    logger.error('Failed to export responses by token', { surveyId, token, error: error?.message });
+    return {
+      content: [textContent(`Error exporting responses by token: ${error?.message || 'Unknown error'}`)],
+      isError: true
+    };
+  }
+}
+
 server.tool(
   "exportResponsesByToken",
   "Exports responses for a specific token",
@@ -433,46 +487,7 @@ server.tool(
     responseType: z.enum(['short', 'long']).default('short').describe("Response type"),
     decodeOutput: z.boolean().default(true).describe("Decode base64 for text formats")
   },
-  async ({ surveyId, token, documentType, language, completionStatus, headingType, responseType, decodeOutput }) => {
-    logger.info('Exporting responses by token', { surveyId, token, documentType });
-    try {
-      const exportData = await limesurveyAPI.exportResponsesByToken(
-        surveyId,
-        documentType,
-        [token],
-        language || null,
-        completionStatus,
-        headingType,
-        responseType,
-        null
-      );
-
-      const textFormats = ['csv', 'json', 'txt', 'html'];
-      const isBinary = !textFormats.includes(documentType.toLowerCase());
-
-      if (decodeOutput && !isBinary) {
-        const decoded = Buffer.from(exportData, 'base64').toString('utf-8');
-        const preview = decoded.substring(0, 1000) + (decoded.length > 1000 ? '\n...[truncated]' : '');
-        return {
-          content: [
-            { type: "text", text: `Responses for token ${token} exported as ${documentType}` },
-            { type: "text", text: `Preview:\n${preview}` }
-          ]
-        };
-      }
-
-      const sizeKB = Math.round(exportData.length * 0.75 / 1024);
-      return {
-        content: [{ type: "text", text: `Responses for token ${token} exported as ${documentType} (base64, ~${sizeKB} KB)` }]
-      };
-    } catch (error: any) {
-      logger.error('Failed to export responses by token', { surveyId, token, error: error?.message });
-      return {
-        content: [{ type: "text", text: `Error exporting responses by token: ${error?.message || 'Unknown error'}` }],
-        isError: true
-      };
-    }
-  }
+  exportResponsesByTokenHandler
 );
 
 /**

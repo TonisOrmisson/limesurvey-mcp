@@ -4,11 +4,11 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-// Print application header
-console.log(`
+// Print application header to stderr so stdio transport keeps stdout protocol-clean.
+console.error(`
 ╔════════════════════════════════════╗
 ║ LimeSurvey MCP Server              ║
-║ Version: 1.0.0                     ║
+║ Version: 1.0.1                     ║
 ║                                    ║
 ║ MCP server for LimeSurvey API      ║
 ╚════════════════════════════════════╝

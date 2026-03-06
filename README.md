@@ -387,7 +387,8 @@ Exports responses from a survey in the specified format.
 - `fields` (optional): Array of field names to export
 
 **Returns**:
-- Exported data in the requested format
+- A success summary plus the raw export payload
+- For text formats with `decodeOutput: true`, also includes a decoded preview
 
 #### Discovery-first export workflow
 

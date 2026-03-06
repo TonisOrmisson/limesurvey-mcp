@@ -19,7 +19,7 @@ export const server = new McpServer({
   description: isReadOnlyMode 
     ? "MCP server that exposes LimeSurvey API read-only functionality" 
     : "MCP server that exposes LimeSurvey API functionality",
-  version: "1.0.0"
+  version: "1.0.1"
 });
 
 // Determine which transport to use based on environment
@@ -33,7 +33,7 @@ const transports: {[sessionId: string]: SSEServerTransport} = {};
  * Logs all registered tools in the server
  */
 export function logRegisteredTools() {
-  console.log('\n===== REGISTERED TOOLS =====');
+  console.error('\n===== REGISTERED TOOLS =====');
 
   // SDK field renamed; support both old `_registry.tools` and new `_registeredTools`
   const toolNames = Object.keys(
@@ -41,12 +41,12 @@ export function logRegisteredTools() {
   );
 
   if (toolNames.length === 0) {
-    console.log('No tools registered yet.');
-    console.log('===========================\n');
+    console.error('No tools registered yet.');
+    console.error('===========================\n');
     return;
   }
 
-  console.log(`Total tools: ${toolNames.length}`);
+  console.error(`Total tools: ${toolNames.length}`);
 
   // Group tools by module / concern to make the list easier to scan.
   const GROUP_DEFS: Record<string, string[]> = {
@@ -127,21 +127,21 @@ export function logRegisteredTools() {
     const present = names.filter((n) => remaining.has(n));
     if (present.length === 0) continue;
 
-    console.log(`\n[${group}]`);
+    console.error(`\n[${group}]`);
     present.forEach((name) => {
-      console.log(`- ${name}`);
+      console.error(`- ${name}`);
       remaining.delete(name);
     });
   }
 
   if (remaining.size > 0) {
-    console.log('\n[Other]');
+    console.error('\n[Other]');
     Array.from(remaining)
       .sort()
-      .forEach((name) => console.log(`- ${name}`));
+      .forEach((name) => console.error(`- ${name}`));
   }
 
-  console.log('\n===========================\n');
+  console.error('\n===========================\n');
 }
 
 // Define read-only and write tool modules
@@ -169,11 +169,11 @@ export async function startServer() {
   
   // Add SSE endpoint
   app.get("/sse", async (_: Request, res: Response) => {
-    console.log("New SSE connection established");
+    console.error("New SSE connection established");
     const transport = new SSEServerTransport('/messages', res);
     transports[transport.sessionId] = transport;
     res.on("close", () => {
-      console.log(`SSE connection closed: ${transport.sessionId}`);
+      console.error(`SSE connection closed: ${transport.sessionId}`);
       delete transports[transport.sessionId];
     });
     await server.connect(transport);
@@ -211,13 +211,13 @@ export async function startServer() {
     const stdioTransport = new StdioServerTransport();
     await server.connect(stdioTransport);
     
-    console.log(`LimeSurvey MCP server running in stdio mode`);
+    console.error(`LimeSurvey MCP server running in stdio mode`);
     
     // Also start the HTTP server for SSE connections
     app.listen(port, () => {
-      console.log(`HTTP server with SSE support available at http://localhost:${port}`);
-      console.log(`Connect to /sse for SSE transport`);
-      console.log(`Post to /messages?sessionId=<id> to send messages`);
+      console.error(`HTTP server with SSE support available at http://localhost:${port}`);
+      console.error(`Connect to /sse for SSE transport`);
+      console.error(`Post to /messages?sessionId=<id> to send messages`);
     });
   } catch (error: any) {
     console.error('Failed to start MCP server:', error?.message || error);
@@ -229,18 +229,18 @@ export async function startServer() {
  * Gracefully shuts down the server and cleans up resources
  */
 export async function shutdownServer() {
-  console.log('Shutting down MCP LimeSurvey server...');
+  console.error('Shutting down MCP LimeSurvey server...');
   
   try {
     // Release the LimeSurvey API session if active
     await limesurveyAPI.releaseSessionKey();
-    console.log('LimeSurvey API session released');
+    console.error('LimeSurvey API session released');
     
     // Close the server
     await server.close();
-    console.log('Server closed successfully');
+    console.error('Server closed successfully');
     
-    console.log('Shutdown complete');
+    console.error('Shutdown complete');
     process.exit(0);
   } catch (error) {
     console.error('Error during shutdown:', error);
