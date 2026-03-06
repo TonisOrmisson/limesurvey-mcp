@@ -19,7 +19,7 @@ export const server = new McpServer({
   description: isReadOnlyMode 
     ? "MCP server that exposes LimeSurvey API read-only functionality" 
     : "MCP server that exposes LimeSurvey API functionality",
-  version: "1.0.1"
+  version: "1.0.2"
 });
 
 // Determine which transport to use based on environment
