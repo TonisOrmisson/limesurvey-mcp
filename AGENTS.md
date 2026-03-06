@@ -42,6 +42,7 @@
 
 ## Commit & Pull Request Guidelines
 - Match current history: short, imperative summaries (~72 chars, e.g., “fix not existing endpoint”).
+- Release tags must not use a `v` prefix. Use plain numeric tags like `1.0.2`, not `v1.0.2`.
 - PRs: state intent, bullet key changes, and include verify steps (`npm run build`, sample `curl http://localhost:3000/sse`).
 - Call out new env vars (`READONLY_MODE`, LimeSurvey credentials) or migrations; link issues.
 - Attach logs/screenshots only when they clarify behavior.
