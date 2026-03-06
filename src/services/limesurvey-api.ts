@@ -254,13 +254,13 @@ class LimeSurveyAPI {
   }
 
   /**
-   * List response export formats available for a survey.
+   * List globally available response export formats.
    *
-   * RemoteControl: list_response_exports($sessionKey, $iSurveyID)
+   * RemoteControl: list_response_exports($sessionKey)
    */
-  async listResponseExports(surveyId: number | string): Promise<any> {
+  async listResponseExports(): Promise<any> {
     const key = await this.getSessionKey();
-    return this.request('list_response_exports', [key, surveyId]);
+    return this.request('list_response_exports', [key]);
   }
 
   /**

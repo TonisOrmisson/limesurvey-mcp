@@ -359,10 +359,10 @@ Gets summary information about a survey's collected responses.
 
 #### listResponseExportFormats
 
-Lists available response export formats for a survey, including plugin-provided types.
+Lists available response export formats globally, including plugin-provided types.
 
 **Parameters**:
-- `surveyId`: The ID of the survey
+- None
 
 **Returns**:
 - A list of export format objects with:
@@ -392,15 +392,14 @@ Exports responses from a survey in the specified format.
 
 #### Discovery-first export workflow
 
-1. Call `listResponseExportFormats` to discover valid `type` values for the target survey.
+1. Call `listResponseExportFormats` to discover valid `type` values exposed by the current LimeSurvey instance.
 2. Pick one returned `type` (for example `csv`, `json`, or a custom plugin format).
 3. Call `exportResponses` with that `documentType`.
 
 **Example**:
 ```yaml
 tool: listResponseExportFormats
-args:
-  surveyId: "123456"
+args: {}
 ---
 tool: exportResponses
 args:

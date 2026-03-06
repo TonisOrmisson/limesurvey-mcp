@@ -7,7 +7,7 @@ async function loadModules() {
   const responsesModule = await import('../tools/responses.js');
   return {
     api: apiModule.default as any,
-    handler: responsesModule.listResponseExportFormatsHandler as (args: { surveyId: string }) => Promise<any>
+    handler: responsesModule.listResponseExportFormatsHandler as () => Promise<any>
   };
 }
 
@@ -37,11 +37,12 @@ test('listResponseExportFormats handler returns summary and raw payload', async 
   api.listResponseExports = async () => exportsPayload;
 
   try {
-    const result = await handler({ surveyId: '12345' });
+    const result = await handler();
     assert.equal(result.isError, undefined);
     assert.equal(result.content.length, 2);
     assert.match(result.content[0].text, /2 format\(s\)/);
     assert.match(result.content[0].text, /Default format\(s\): csv/);
+    assert.doesNotMatch(result.content[0].text, /survey ID/);
     assert.deepEqual(JSON.parse(result.content[1].text), exportsPayload);
   } finally {
     api.listResponseExports = originalListResponseExports;
@@ -57,7 +58,7 @@ test('listResponseExportFormats handler marks RC2 status errors', async () => {
   api.listResponseExports = async () => statusPayload;
 
   try {
-    const result = await handler({ surveyId: '12345' });
+    const result = await handler();
     assert.equal(result.isError, true);
     assert.equal(result.content.length, 2);
     assert.match(result.content[0].text, /No permission/);
@@ -76,7 +77,7 @@ test('listResponseExportFormats handler marks thrown failures', async () => {
   };
 
   try {
-    const result = await handler({ surveyId: '12345' });
+    const result = await handler();
     assert.equal(result.isError, true);
     assert.equal(result.content.length, 1);
     assert.match(result.content[0].text, /Connection lost/);

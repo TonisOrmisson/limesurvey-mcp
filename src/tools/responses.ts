@@ -116,16 +116,16 @@ server.tool(
   }
 );
 
-export async function listResponseExportFormatsHandler({ surveyId }: { surveyId: string }) {
-  logger.info('Listing response export formats', { surveyId });
+export async function listResponseExportFormatsHandler() {
+  logger.info('Listing response export formats');
   try {
-    const exportsResult = await limesurveyAPI.listResponseExports(surveyId);
+    const exportsResult = await limesurveyAPI.listResponseExports();
 
     if (!Array.isArray(exportsResult)) {
       const status = typeof exportsResult?.status === 'string'
         ? exportsResult.status
         : 'Unexpected response format';
-      logger.error('Failed to list response export formats', { surveyId, error: status });
+      logger.error('Failed to list response export formats', { error: status });
       return {
         content: [
           textContent(`Error listing response export formats: ${status}`),
@@ -142,20 +142,18 @@ export async function listResponseExportFormatsHandler({ surveyId }: { surveyId:
       : '';
 
     logger.info('Successfully listed response export formats', {
-      surveyId,
       formatCount: responseExports.length,
       defaultCount: defaultTypes.length
     });
 
     return {
       content: [
-        textContent(`Response export formats for survey ID ${surveyId}: ${responseExports.length} format(s).${defaultSummary}`),
+        textContent(`Response export formats: ${responseExports.length} format(s).${defaultSummary}`),
         textContent(JSON.stringify(responseExports, null, 2))
       ]
     };
   } catch (error: any) {
     logger.error('Failed to list response export formats', {
-      surveyId,
       error: error?.message
     });
     return {
@@ -167,10 +165,8 @@ export async function listResponseExportFormatsHandler({ surveyId }: { surveyId:
 
 server.tool(
   "listResponseExportFormats",
-  "Lists discoverable response export formats for a survey, including plugin-provided formats",
-  {
-    surveyId: z.string().describe("The ID of the survey")
-  },
+  "Lists globally discoverable response export formats, including plugin-provided formats",
+  {},
   listResponseExportFormatsHandler
 );
 

@@ -35,10 +35,10 @@ test('listResponseExports forwards the request parameters to RC2', async () => {
   };
 
   try {
-    const result = await api.listResponseExports('12345');
+    const result = await api.listResponseExports();
 
     assert.equal(capturedMethod, 'list_response_exports');
-    assert.deepEqual(capturedParams, ['session-key-123', '12345']);
+    assert.deepEqual(capturedParams, ['session-key-123']);
     assert.deepEqual(result, expectedPayload);
   } finally {
     mutableApi.getSessionKey = originalGetSessionKey;
@@ -65,7 +65,7 @@ test('listResponseExports preserves RC2 status payloads', async () => {
 
   try {
     for (const payload of statusPayloads) {
-      const result = await api.listResponseExports('12345');
+      const result = await api.listResponseExports();
       assert.deepEqual(result, payload);
     }
   } finally {
