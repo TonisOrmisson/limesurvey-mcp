@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { decode } from '@toon-format/toon';
 
 async function loadModules() {
   process.env.LIMESURVEY_API_URL = process.env.LIMESURVEY_API_URL || 'http://example.invalid/remotecontrol';
@@ -80,7 +81,7 @@ test('exportResponses handler keeps preview and includes raw base64 payload for 
     assert.equal(result.isError, undefined);
     assert.equal(result.content.length, 3);
     assert.match(result.content[1].text, /Preview of exported data:/);
-    assert.match(result.content[1].text, /"ok": true/);
+    assert.match(result.content[1].text, /ok: true/);
     assert.equal(result.content[2].text, `Raw base64 payload:\n${exportData}`);
   } finally {
     api.exportResponses = originalExportResponses;

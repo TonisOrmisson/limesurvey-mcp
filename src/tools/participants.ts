@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { formatForLLM } from '../utils/toon.js';
 
 /**
  * Tool to add a participant to a survey
@@ -56,7 +57,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(result, null, 2)
+            text: formatForLLM(result)
           }
         ]
       };
@@ -113,7 +114,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(participants, null, 2)
+            text: formatForLLM(participants)
           }
         ]
       };
@@ -163,7 +164,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(properties, null, 2)
+            text: formatForLLM(properties)
           }
         ]
       };
@@ -229,7 +230,7 @@ server.tool(
             },
             {
               type: "text", 
-              text: JSON.stringify(result, null, 2)
+              text: formatForLLM(result)
             }
           ]
         };
@@ -301,7 +302,7 @@ server.tool(
             },
             {
               type: "text", 
-              text: JSON.stringify(participants, null, 2)
+              text: formatForLLM(participants)
             }
           ]
         };
@@ -373,7 +374,7 @@ server.tool(
             },
             {
               type: "text",
-              text: JSON.stringify(result, null, 2)
+              text: formatForLLM(result)
             }
           ]
         };
@@ -437,7 +438,7 @@ server.tool(
           },
           {
             type: "text",
-            text: JSON.stringify(result, null, 2)
+            text: formatForLLM(result)
           }
         ]
       };
@@ -502,7 +503,7 @@ server.tool(
           },
           {
             type: "text",
-            text: JSON.stringify(result, null, 2)
+            text: formatForLLM(result)
           }
         ]
       };

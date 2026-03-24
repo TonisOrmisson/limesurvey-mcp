@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { formatForLLM } from '../utils/toon.js';
 
 
 
@@ -96,7 +97,7 @@ server.tool(
             },
             {
               type: "text", 
-              text: JSON.stringify(matchedSurveys, null, 2)
+              text: formatForLLM(matchedSurveys)
             }
           ]
         };
@@ -147,7 +148,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(surveys, null, 2)
+            text: formatForLLM(surveys)
           }
         ]
       };
@@ -193,7 +194,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(properties, null, 2)
+            text: formatForLLM(properties)
           }
         ]
       };
@@ -245,7 +246,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(result, null, 2)
+            text: formatForLLM(result)
           }
         ]
       };
@@ -296,7 +297,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(properties, null, 2)
+            text: formatForLLM(properties)
           }
         ]
       };
@@ -383,7 +384,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(raw, null, 2)
+            text: formatForLLM(raw)
           }
         ]
       };
@@ -481,7 +482,7 @@ server.tool(
       return {
         content: [
           { type: "text", text: `Retrieved field map for survey ${surveyId} with ${count} entries` },
-          { type: "text", text: JSON.stringify(fieldMap, null, 2) }
+          { type: "text", text: formatForLLM(fieldMap) }
         ]
       };
     } catch (error: any) {

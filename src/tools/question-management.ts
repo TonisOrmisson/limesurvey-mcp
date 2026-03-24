@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { formatForLLM } from '../utils/toon.js';
 
 /**
  * Sets properties on a specific question.
@@ -64,7 +65,7 @@ server.tool(
           },
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2)
+            text: formatForLLM(result)
           }
         ]
       };

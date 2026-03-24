@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { formatForLLM } from '../utils/toon.js';
 
 /**
  * Tool to list all questions for a survey in LimeSurvey
@@ -39,7 +40,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(questions, null, 2)
+            text: formatForLLM(questions)
           }
         ]
       };
@@ -114,7 +115,7 @@ server.tool(
           },
           {
             type: "text",
-            text: JSON.stringify(result, null, 2)
+            text: formatForLLM(result)
           }
         ]
       };

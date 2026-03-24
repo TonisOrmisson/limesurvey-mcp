@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { decode } from '@toon-format/toon';
 
 async function loadModules() {
   process.env.LIMESURVEY_API_URL = process.env.LIMESURVEY_API_URL || 'http://example.invalid/remotecontrol';
@@ -43,7 +44,7 @@ test('listResponseExportFormats handler returns summary and raw payload', async 
     assert.match(result.content[0].text, /2 format\(s\)/);
     assert.match(result.content[0].text, /Default format\(s\): csv/);
     assert.doesNotMatch(result.content[0].text, /survey ID/);
-    assert.deepEqual(JSON.parse(result.content[1].text), exportsPayload);
+    assert.deepEqual(decode(result.content[1].text), exportsPayload);
   } finally {
     api.listResponseExports = originalListResponseExports;
   }
@@ -62,7 +63,7 @@ test('listResponseExportFormats handler marks RC2 status errors', async () => {
     assert.equal(result.isError, true);
     assert.equal(result.content.length, 2);
     assert.match(result.content[0].text, /No permission/);
-    assert.deepEqual(JSON.parse(result.content[1].text), statusPayload);
+    assert.deepEqual(decode(result.content[1].text), statusPayload);
   } finally {
     api.listResponseExports = originalListResponseExports;
   }

@@ -23,13 +23,15 @@
 ## Coding Style & Naming Conventions
 - TypeScript + ES modules; prefer `async/await`, `const`/`let`, and explicit types over `any`.
 - Indent 2 spaces; order imports external → internal.
-- Use `logger` (JSON + colorized console) for operational output; pass context objects.
+- Use `logger` (TOON metadata + colorized console) for operational output; pass context objects.
+- Use `formatForLLM` from `src/utils/toon.js` for ALL tool response text. DO NOT use `JSON.stringify` for LLM-facing output.
 - Keep one tool per file in `src/tools/`, mirroring LimeSurvey domains.
 - For every new tool and client wrapper you add, you MUST:
   - Confirm that the corresponding LimeSurvey RemoteControl2 API method exists and matches the expected signature by checking BOTH:
     - The official RemoteControl2 documentation, and
     - The local source file `LIME/remotecontrol_handle.php` in this repo (treat this file as the source of truth for the actual instance).
   - Validate all input parameters and types with `zod` schemas (no “pass‑through” unvalidated payloads), keeping names and semantics aligned with the PHP method signatures.
+  - Return all data formatted with `formatForLLM`.
   - For **write** operations (anything that creates/updates/deletes or sends emails), always:
     - Guard with `ensureWriteAllowed('<toolName>')` at the very top of the handler.
     - Require an explicit `confirm...` flag (for example `confirmDeletion: z.literal(true)`) on destructive tools.

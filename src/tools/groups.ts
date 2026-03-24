@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
+import { formatForLLM } from '../utils/toon.js';
 
 /**
  * Question group tools
@@ -34,7 +35,7 @@ server.tool(
           },
           {
             type: "text",
-            text: JSON.stringify(groups, null, 2)
+            text: formatForLLM(groups)
           }
         ]
       };
@@ -113,7 +114,7 @@ server.tool(
           },
           {
             type: "text",
-            text: JSON.stringify(result, null, 2)
+            text: formatForLLM(result)
           }
         ]
       };

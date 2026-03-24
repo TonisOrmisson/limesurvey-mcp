@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { formatForLLM } from '../utils/toon.js';
 
 /**
  * Adds an additional language to a survey.
@@ -29,7 +30,7 @@ server.tool(
       return {
         content: [
           { type: 'text', text: `Language ${language} added to survey ${surveyId}` },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {
@@ -70,7 +71,7 @@ server.tool(
       return {
         content: [
           { type: 'text', text: `Language ${language} deleted from survey ${surveyId}` },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {
@@ -146,7 +147,7 @@ server.tool(
             type: 'text',
             text: `Language properties updated for survey ${surveyId} (${language || 'base language'})`
           },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {

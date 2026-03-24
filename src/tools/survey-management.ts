@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { formatForLLM } from '../utils/toon.js';
 
 // Add a new (empty) survey
 server.tool(
@@ -86,7 +87,7 @@ server.tool(
     try {
       const rawResult = await limesurveyAPI.copySurvey(surveyId, newName || null);
       const newId = typeof rawResult === 'object'
-        ? (rawResult as any).newsid ?? (rawResult as any).id ?? (rawResult as any).sid ?? JSON.stringify(rawResult)
+        ? (rawResult as any).newsid ?? (rawResult as any).id ?? (rawResult as any).sid ?? formatForLLM(rawResult)
         : rawResult;
       logger.info('Survey copied', { from: surveyId, to: newId });
       return {
@@ -122,7 +123,7 @@ server.tool(
       return {
         content: [
           { type: 'text', text: `Survey ${surveyId} deleted` },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {
@@ -154,7 +155,7 @@ server.tool(
       return {
         content: [
           { type: 'text', text: `Tokens activated for survey ${surveyId}` },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {
@@ -213,7 +214,7 @@ server.tool(
           },
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2)
+            text: formatForLLM(result)
           }
         ]
       };

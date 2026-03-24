@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { formatForLLM } from '../utils/toon.js';
 
 /**
  * Adds a new quota to a survey.
@@ -32,7 +33,7 @@ server.tool(
       return {
         content: [
           { type: 'text', text: `Quota "${name}" added to survey ${surveyId} with limit ${limit}` },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {
@@ -83,7 +84,7 @@ server.tool(
       return {
         content: [
           { type: 'text', text: `Quota properties for ID ${quotaId} retrieved successfully` },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {
@@ -143,7 +144,7 @@ server.tool(
       return {
         content: [
           { type: 'text', text: `Quota ${quotaId} updated successfully` },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {
@@ -181,7 +182,7 @@ server.tool(
       return {
         content: [
           { type: 'text', text: `Quota ${quotaId} deleted` },
-          { type: 'text', text: JSON.stringify(result, null, 2) }
+          { type: 'text', text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {

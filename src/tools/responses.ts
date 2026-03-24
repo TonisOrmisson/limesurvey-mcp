@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { formatForLLM } from '../utils/toon.js';
 
 type ResponseExportFormat = {
   type: string;
@@ -42,11 +43,12 @@ function buildExportPayloadContent(
 
       if (normalizedDocumentType === 'json') {
         try {
-          previewText = JSON.stringify(JSON.parse(decodedData), null, 2).substring(0, 1000);
+          previewText = formatForLLM(JSON.parse(decodedData)).substring(0, 1000);
         } catch {
           previewText = decodedData.substring(0, 1000);
         }
       } else {
+
         previewText = decodedData.substring(0, 1000);
       }
 
@@ -96,7 +98,7 @@ server.tool(
           },
           {
             type: "text", 
-            text: JSON.stringify(summary, null, 2)
+            text: formatForLLM(summary)
           }
         ]
       };
@@ -129,7 +131,7 @@ export async function listResponseExportFormatsHandler() {
       return {
         content: [
           textContent(`Error listing response export formats: ${status}`),
-          textContent(JSON.stringify(exportsResult, null, 2))
+          textContent(formatForLLM(exportsResult))
         ],
         isError: true
       };
@@ -149,7 +151,7 @@ export async function listResponseExportFormatsHandler() {
     return {
       content: [
         textContent(`Response export formats: ${responseExports.length} format(s).${defaultSummary}`),
-        textContent(JSON.stringify(responseExports, null, 2))
+        textContent(formatForLLM(responseExports))
       ]
     };
   } catch (error: any) {
@@ -365,7 +367,7 @@ server.tool(
       return {
         content: [
           { type: "text", text: `Response ${responseId} deleted from survey ${surveyId}` },
-          { type: "text", text: JSON.stringify(result, null, 2) }
+          { type: "text", text: formatForLLM(result) }
         ]
       };
     } catch (error: any) {
@@ -402,7 +404,7 @@ server.tool(
       return {
         content: [
           { type: "text", text: `Response IDs for survey ${surveyId}${token ? ' (token ' + token + ')' : ''}` },
-          { type: "text", text: JSON.stringify(ids, null, 2) }
+          { type: "text", text: formatForLLM(ids) }
         ]
       };
     } catch (error: any) {
@@ -504,7 +506,7 @@ server.tool(
       return {
         content: [
           { type: "text", text: `Timeline for survey ${surveyId} (${period}) from ${dateFrom} to ${dateTo}` },
-          { type: "text", text: JSON.stringify(await limesurveyAPI.exportTimeline(surveyId, period, dateFrom, dateTo), null, 2) }
+          { type: "text", text: formatForLLM(await limesurveyAPI.exportTimeline(surveyId, period, dateFrom, dateTo)) }
         ]
       };
     } catch (error: any) {
@@ -541,7 +543,7 @@ server.tool(
       return {
         content: [
           { type: "text", text: `File uploaded for survey ${surveyId} on field ${fieldName}` },
-          { type: "text", text: JSON.stringify(metadata, null, 2) }
+          { type: "text", text: formatForLLM(metadata) }
         ]
       };
     } catch (error: any) {
@@ -576,7 +578,7 @@ server.tool(
       return {
         content: [
           { type: "text", text: `Uploaded files for survey ${surveyId} and token ${token}` },
-          { type: "text", text: JSON.stringify(files, null, 2) }
+          { type: "text", text: formatForLLM(files) }
         ]
       };
     } catch (error: any) {

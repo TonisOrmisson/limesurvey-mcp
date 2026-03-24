@@ -1,5 +1,6 @@
 import winston from 'winston';
 import path from 'path';
+import { encode } from '@toon-format/toon';
 
 // Configure the Winston logger
 const logger = winston.createLogger({
@@ -19,7 +20,7 @@ const logger = winston.createLogger({
       format: winston.format.combine(
         winston.format.colorize(),
         winston.format.printf(({ timestamp, level, message, ...meta }) => {
-          return `${timestamp} ${level}: ${message} ${Object.keys(meta).length ? JSON.stringify(meta, null, 2) : ''}`;
+          return `${timestamp} ${level}: ${message} ${Object.keys(meta).length ? encode(meta) : ''}`;
         })
       ),
     }),

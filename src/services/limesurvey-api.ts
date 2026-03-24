@@ -6,6 +6,7 @@
  */
 import axios, { AxiosInstance } from 'axios';
 import dotenv from 'dotenv';
+import { formatForLLM } from '../utils/toon.js';
 
 dotenv.config();
 
@@ -64,7 +65,7 @@ class LimeSurveyAPI {
       });
 
       if (response.data.error) {
-        throw new Error(`LimeSurvey API error: ${JSON.stringify(response.data.error)}`);
+        throw new Error(`LimeSurvey API error: ${formatForLLM(response.data.error)}`);
       }
 
       return response.data.result;
