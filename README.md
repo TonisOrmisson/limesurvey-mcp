@@ -57,6 +57,20 @@ READONLY_MODE=false
 
 Once the server is running, you can use any MCP client to connect to it and access LimeSurvey functionality.
 
+### Headless survey construction (addSurvey → groups → questions)
+
+You can build a survey without the LimeSurvey admin UI by combining write tools:
+
+1. **`addSurvey`** — create an inactive survey; note the returned survey ID (`sid`).
+2. **`addGroup`** — create one or more question groups; each call returns a group ID (`gid`) for the next step.
+3. **`importQuestion`** — for each question, pass **base64-encoded `.lsq`** content (export a prototype question once from the UI, or generate compatible XML). Use `importDataType: lsq`.
+4. **`setSurveyProperties`** — welcome text, description, end URL, etc.
+5. **`activateSurvey`** — when the structure is ready.
+
+**Idempotent rebuilds:** use **`deleteQuestion`** (per `qid`, with `confirmDeletion: true`) and **`deleteGroup`** (per survey + `gid`) to tear down a group or individual questions before re-importing `.lsq` templates. Deleting a group removes that group’s content; confirm behaviour on your LimeSurvey version in a dev survey first.
+
+**Participant link pattern:** `https://<host>/index.php/<sid>` (use `sid` from `addSurvey` or `listSurveys`). Tokenised access uses your existing participant tools.
+
 Example MCP client snippet (pseudo‑YAML) to list surveys:
 
 ```yaml
@@ -90,9 +104,13 @@ undocumented endpoints).
 | Survey lifecycle    | `set_survey_properties`      | `setSurveyProperties`      | write (guarded)                        |
 | Question groups     | `list_groups`                | `listQuestionGroups`       | read‑only                              |
 | Question groups     | `get_group_properties`       | `getGroupProperties`       | read‑only                              |
+| Question groups     | `add_group`                  | `addGroup`                 | write (guarded); returns new `gid`     |
+| Question groups     | `delete_group`               | `deleteGroup`              | write (guarded, confirmation required) |
 | Question groups     | `set_group_properties`       | `setGroupProperties`       | write (guarded)                        |
 | Questions           | `list_questions`             | `listQuestions`            | read‑only                              |
 | Questions           | `get_question_properties`    | `getQuestionProperties`    | read‑only                              |
+| Questions           | `import_question`            | `importQuestion`           | write (guarded); base64 `.lsq`         |
+| Questions           | `delete_question`            | `deleteQuestion`           | write (guarded, confirmation required) |
 | Questions           | `set_question_properties`    | `setQuestionProperties`    | write (guarded)                        |
 | Responses           | `get_summary`                | `getResponseSummary`       | read‑only                              |
 | Responses           | `list_response_exports`      | `listResponseExportFormats`| read‑only discovery (plugin‑aware)     |
@@ -333,6 +351,44 @@ Lists all question groups for a specific survey.
 **Returns**:
 - Array of question group objects with properties including ID, title, description, and order
 
+#### addGroup
+
+Creates an **empty** question group on a survey. Wraps RemoteControl `add_group` and returns the new group ID (integer on success), which you pass to `importQuestion` as `groupId`.
+
+**Parameters**:
+- `surveyId`: Survey ID
+- `title`: Group title
+- `description` (optional): Group description; default empty string
+
+#### importQuestion
+
+Imports a question from **base64-encoded `.lsq`** data into a group. Same idea as `importSurvey` with `.lss`: prepare templates (e.g. export one question per type from LimeSurvey once), then call this tool repeatedly with different payloads.
+
+**Parameters**:
+- `surveyId`, `groupId`: Target survey and group
+- `importData`: Base64-encoded `.lsq` content
+- `importDataType`: Must be `lsq` (default)
+- `mandatory`: `Y` or `N` (default `N`)
+- `newQuestionTitle`, `newQuestionText`, `newQuestionHelp` (optional): Overrides matching RemoteControl optional arguments after import
+
+**Returns**: New question ID on success (integer), or an error structure from LimeSurvey on failure.
+
+#### deleteGroup
+
+Removes a question group from a survey. Wraps RemoteControl `delete_group`. Typically deletes questions inside the group as well; verify on your instance.
+
+**Parameters**:
+- `surveyId`, `groupId`: Survey and group to remove
+- `confirmDeletion`: Must be `true` (safety guard)
+
+#### deleteQuestion
+
+Removes one question by `qid`. Wraps RemoteControl `delete_question`. Complex types (e.g. ranking) may use additional rows in `listQuestions` (subquestions); delete or rebuild according to what your export/import cycle produced.
+
+**Parameters**:
+- `questionId`: Question ID to delete
+- `confirmDeletion`: Must be `true`
+
 #### getQuestionProperties
 
 Gets properties for a specific question.
@@ -344,6 +400,21 @@ Gets properties for a specific question.
 
 **Returns**:
 - Object containing the requested properties for the question
+
+#### setQuestionProperties
+
+Updates writable fields on a question via RemoteControl `set_question_properties`. **Discovery first:** call `getQuestionProperties` (optionally with a list of setting names) so you only send keys LimeSurvey accepts. The API blocks changes to structural fields such as `qid`, `gid`, `sid`, `parent_qid`, `type`, and `language`.
+
+**Common edits**
+- **`question`**: Stem text (often HTML).
+- **`help`**: Help text below the stem.
+- Pass **`language`** when updating a non-base survey language.
+
+**Ranking questions (type R)**  
+The participant-facing rank labels usually live on **subquestion** rows (`parent_qid` points at the parent). Update each subquestion’s `question` text with `setQuestionProperties` on that row’s `qid`, or adjust the `.lsq` template and re-import.
+
+**List / list-with-comment types**  
+The main prompt is still `question` / `help` on the parent. Answer labels may be separate answer records; if RemoteControl does not expose what you need, prefer editing the `.lsq` template and using `importQuestion` (or admin UI) for choice lists, and use this tool for wording tweaks the API allows.
 
 ### Response Management
 

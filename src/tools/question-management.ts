@@ -5,6 +5,146 @@ import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 /**
+ * Import a question from base64-encoded .lsq content into a group.
+ *
+ * Wraps RemoteControl import_question (same pattern as importSurvey + LSS).
+ */
+server.tool(
+  'importQuestion',
+  'Imports a question from base64-encoded .lsq data into a survey group; returns the new question ID on success',
+  {
+    surveyId: z.union([z.string(), z.number()]).describe('Survey ID'),
+    groupId: z.union([z.string(), z.number()]).describe('Target question group ID (from addGroup or listQuestionGroups)'),
+    importData: z
+      .string()
+      .describe('Base64-encoded .lsq file content (export one question from LimeSurvey once, then reuse as a template)'),
+    importDataType: z
+      .literal('lsq')
+      .default('lsq')
+      .describe('Import format; RemoteControl expects lsq for question import'),
+    mandatory: z
+      .enum(['Y', 'N'])
+      .default('N')
+      .describe("Whether the imported question is mandatory ('Y' or 'N')"),
+    newQuestionTitle: z
+      .string()
+      .optional()
+      .describe('Optional: override question code/title after import'),
+    newQuestionText: z
+      .string()
+      .optional()
+      .describe('Optional: override question text after import'),
+    newQuestionHelp: z
+      .string()
+      .optional()
+      .describe('Optional: override help text after import')
+  },
+  async ({
+    surveyId,
+    groupId,
+    importData,
+    importDataType,
+    mandatory,
+    newQuestionTitle,
+    newQuestionText,
+    newQuestionHelp
+  }) => {
+    const readonly = ensureWriteAllowed('importQuestion');
+    if (readonly) {
+      return readonly;
+    }
+
+    logger.info('Importing question', { surveyId, groupId, importDataType });
+    try {
+      const result = await limesurveyAPI.importQuestion(
+        surveyId,
+        groupId,
+        importData,
+        importDataType,
+        mandatory,
+        newQuestionTitle ?? null,
+        newQuestionText ?? null,
+        newQuestionHelp ?? null
+      );
+      logger.info('Question imported', { surveyId, groupId, result });
+      const text =
+        typeof result === 'number'
+          ? `Question imported with ID ${result}`
+          : `Question import returned: ${JSON.stringify(result)}`;
+      return {
+        content: [
+          { type: 'text', text },
+          { type: 'text', text: JSON.stringify(result, null, 2) }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to import question', {
+        surveyId,
+        groupId,
+        error: error?.message
+      });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error importing question: ${error?.message || 'Unknown error'}`
+          }
+        ],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * Delete a single question from a survey.
+ *
+ * Wraps RemoteControl delete_question. Child rows (e.g. ranking subquestions) may
+ * need separate deletes depending on LimeSurvey version—use listQuestions to inspect.
+ */
+server.tool(
+  'deleteQuestion',
+  'Deletes a question from a survey (irreversible); requires explicit confirmation',
+  {
+    questionId: z.union([z.string(), z.number()]).describe('Question ID (qid) to delete'),
+    confirmDeletion: z.literal(true).describe('Must be true to proceed')
+  },
+  async ({ questionId }) => {
+    const readonly = ensureWriteAllowed('deleteQuestion');
+    if (readonly) {
+      return readonly;
+    }
+
+    logger.warn('Deleting question', { questionId });
+    try {
+      const result = await limesurveyAPI.deleteQuestion(questionId);
+      logger.info('Question deleted', { questionId, result });
+      const text =
+        typeof result === 'number'
+          ? `Question ${questionId} deleted (qid ${result})`
+          : `Question deletion returned: ${JSON.stringify(result)}`;
+      return {
+        content: [
+          { type: 'text', text },
+          { type: 'text', text: JSON.stringify(result, null, 2) }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to delete question', { questionId, error: error?.message });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error deleting question: ${error?.message || 'Unknown error'}`
+          }
+        ],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
  * Sets properties on a specific question.
  *
  * Wraps the RemoteControl set_question_properties method:
@@ -12,13 +152,13 @@ import { ensureWriteAllowed } from '../utils/readonly-guard.js';
  */
 server.tool(
   'setQuestionProperties',
-  'Sets properties for a specific question',
+  'Sets LimeSurvey question fields (text, help, etc.); use getQuestionProperties first. Type/gid/sid/parent_qid/language are restricted by the API.',
   {
     questionId: z.union([z.string(), z.number()]).describe('The ID of the question'),
     properties: z
       .record(z.any())
       .describe(
-        'Question fields to update (see Question attributes; qid/gid/sid/parent_qid/language/type are restricted)'
+        'Fields to update: commonly `question` (stem HTML), `help`. Ranking/list types: parent carries the stem; rank items and list choices are often separate rows (subquestions/answers)—inspect with listQuestions + getQuestionProperties before editing.'
       ),
     language: z
       .string()
