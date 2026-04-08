@@ -5,6 +5,106 @@ import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
 
 /**
+ * Create an empty question group (for headless survey construction).
+ *
+ * Wraps RemoteControl add_group: returns the new group id for use with importQuestion.
+ */
+server.tool(
+  'addGroup',
+  'Creates an empty question group on a survey; returns the new group ID (use with importQuestion)',
+  {
+    surveyId: z.union([z.string(), z.number()]).describe('Survey ID to add the group to'),
+    title: z.string().describe('Group title (shown to participants)'),
+    description: z
+      .string()
+      .optional()
+      .default('')
+      .describe('Optional group description')
+  },
+  async ({ surveyId, title, description }) => {
+    const readonly = ensureWriteAllowed('addGroup');
+    if (readonly) {
+      return readonly;
+    }
+
+    logger.info('Adding question group', { surveyId, title });
+    try {
+      const result = await limesurveyAPI.addGroup(surveyId, title, description ?? '');
+      logger.info('Question group created', { surveyId, result });
+      const text =
+        typeof result === 'number'
+          ? `Question group created with ID ${result}`
+          : `Question group creation returned: ${JSON.stringify(result)}`;
+      return {
+        content: [
+          { type: 'text', text },
+          { type: 'text', text: JSON.stringify(result, null, 2) }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to add group', { surveyId, error: error?.message });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error adding question group: ${error?.message || 'Unknown error'}`
+          }
+        ],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
+ * Delete a question group (and its questions) from a survey.
+ *
+ * Wraps RemoteControl delete_group. Use for idempotent “rebuild group” scripts.
+ */
+server.tool(
+  'deleteGroup',
+  'Deletes a question group from a survey (irreversible); requires explicit confirmation',
+  {
+    surveyId: z.union([z.string(), z.number()]).describe('Survey ID the group belongs to'),
+    groupId: z.union([z.string(), z.number()]).describe('Question group ID to delete'),
+    confirmDeletion: z.literal(true).describe('Must be true to proceed')
+  },
+  async ({ surveyId, groupId }) => {
+    const readonly = ensureWriteAllowed('deleteGroup');
+    if (readonly) {
+      return readonly;
+    }
+
+    logger.warn('Deleting question group', { surveyId, groupId });
+    try {
+      const result = await limesurveyAPI.deleteGroup(surveyId, groupId);
+      logger.info('Question group deleted', { surveyId, groupId, result });
+      const text =
+        typeof result === 'number'
+          ? `Question group ${groupId} deleted (gid ${result})`
+          : `Question group deletion returned: ${JSON.stringify(result)}`;
+      return {
+        content: [
+          { type: 'text', text },
+          { type: 'text', text: JSON.stringify(result, null, 2) }
+        ]
+      };
+    } catch (error: any) {
+      logger.error('Failed to delete group', { surveyId, groupId, error: error?.message });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error deleting question group: ${error?.message || 'Unknown error'}`
+          }
+        ],
+        isError: true
+      };
+    }
+  }
+);
+
+/**
  * Sets properties on a specific question group.
  *
  * Wraps the RemoteControl set_group_properties method:

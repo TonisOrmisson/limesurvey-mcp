@@ -244,6 +244,76 @@ class LimeSurveyAPI {
   }
 
   /**
+   * Add an empty question group to a survey.
+   *
+   * RemoteControl: add_group($sessionKey, $iSurveyID, $sGroupTitle[, $sGroupDescription = ''])
+   * Returns the new group id (int) on success, or an error payload (array).
+   */
+  async addGroup(
+    surveyId: number | string,
+    title: string,
+    description: string = ''
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('add_group', [key, surveyId, title, description]);
+  }
+
+  /**
+   * Import a question from base64-encoded .lsq data into a group.
+   *
+   * RemoteControl: import_question(
+   *   $sessionKey, $iSurveyID, $iGroupID, $sImportData, $sImportDataType,
+   *   $sMandatory = 'N', $sNewQuestionTitle = null, $sNewqQuestion = null, $sNewQuestionHelp = null
+   * )
+   */
+  async importQuestion(
+    surveyId: number | string,
+    groupId: number | string,
+    importData: string,
+    importDataType: string = 'lsq',
+    mandatory: 'Y' | 'N' = 'N',
+    newQuestionTitle: string | null = null,
+    newQuestionText: string | null = null,
+    newQuestionHelp: string | null = null
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('import_question', [
+      key,
+      surveyId,
+      groupId,
+      importData,
+      importDataType,
+      mandatory,
+      newQuestionTitle,
+      newQuestionText,
+      newQuestionHelp
+    ]);
+  }
+
+  /**
+   * Delete a question group from a survey.
+   *
+   * RemoteControl: delete_group($sessionKey, $iSurveyID, $iGroupID)
+   */
+  async deleteGroup(
+    surveyId: number | string,
+    groupId: number | string
+  ): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('delete_group', [key, surveyId, groupId]);
+  }
+
+  /**
+   * Delete a question from a survey.
+   *
+   * RemoteControl: delete_question($sessionKey, $iQuestionID)
+   */
+  async deleteQuestion(questionId: number | string): Promise<any> {
+    const key = await this.getSessionKey();
+    return this.request('delete_question', [key, questionId]);
+  }
+
+  /**
    * Get response count for a survey
    * @param {number|string} surveyId - The survey ID
    * @returns {Promise<Object>} - The response count stats

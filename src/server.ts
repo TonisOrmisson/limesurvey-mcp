@@ -19,7 +19,7 @@ export const server = new McpServer({
   description: isReadOnlyMode 
     ? "MCP server that exposes LimeSurvey API read-only functionality" 
     : "MCP server that exposes LimeSurvey API functionality",
-  version: "1.0.3"
+  version: "1.0.5"
 });
 
 // Determine which transport to use based on environment
@@ -65,6 +65,8 @@ export function logRegisteredTools() {
       'getGroupProperties',
     ],
     'group-management.ts': [
+      'addGroup',
+      'deleteGroup',
       'setGroupProperties',
     ],
     'questions.ts': [
@@ -72,6 +74,8 @@ export function logRegisteredTools() {
       'getQuestionProperties',
     ],
     'question-management.ts': [
+      'importQuestion',
+      'deleteQuestion',
       'setQuestionProperties',
     ],
     'statistics.ts': [
