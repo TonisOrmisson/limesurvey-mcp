@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { getRc2Status } from '../utils/rc2-status.js';
 
 /**
  * Import a question from base64-encoded .lsq content into a group.
@@ -23,9 +24,9 @@ server.tool(
       .default('lsq')
       .describe('Import format; RemoteControl expects lsq for question import'),
     mandatory: z
-      .enum(['Y', 'N'])
+      .enum(['Y', 'S', 'N'])
       .default('N')
-      .describe("Whether the imported question is mandatory ('Y' or 'N')"),
+      .describe("Whether the imported question is mandatory ('Y', 'S', or 'N')"),
     newQuestionTitle: z
       .string()
       .optional()
@@ -66,6 +67,19 @@ server.tool(
         newQuestionText ?? null,
         newQuestionHelp ?? null
       );
+      const status = getRc2Status(result);
+
+      if (status) {
+        logger.error('Failed to import question', { surveyId, groupId, status });
+        return {
+          content: [
+            { type: 'text', text: `Error importing question: ${status}` },
+            { type: 'text', text: JSON.stringify(result, null, 2) }
+          ],
+          isError: true
+        };
+      }
+
       logger.info('Question imported', { surveyId, groupId, result });
       const text =
         typeof result === 'number'
@@ -118,6 +132,19 @@ server.tool(
     logger.warn('Deleting question', { questionId });
     try {
       const result = await limesurveyAPI.deleteQuestion(questionId);
+      const status = getRc2Status(result);
+
+      if (status) {
+        logger.error('Failed to delete question', { questionId, status });
+        return {
+          content: [
+            { type: 'text', text: `Error deleting question: ${status}` },
+            { type: 'text', text: JSON.stringify(result, null, 2) }
+          ],
+          isError: true
+        };
+      }
+
       logger.info('Question deleted', { questionId, result });
       const text =
         typeof result === 'number'

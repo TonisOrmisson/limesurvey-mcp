@@ -271,7 +271,7 @@ class LimeSurveyAPI {
     groupId: number | string,
     importData: string,
     importDataType: string = 'lsq',
-    mandatory: 'Y' | 'N' = 'N',
+    mandatory: 'Y' | 'S' | 'N' = 'N',
     newQuestionTitle: string | null = null,
     newQuestionText: string | null = null,
     newQuestionHelp: string | null = null

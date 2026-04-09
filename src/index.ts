@@ -8,7 +8,7 @@ dotenv.config();
 console.error(`
 ╔════════════════════════════════════╗
 ║ LimeSurvey MCP Server              ║
-║ Version: 1.0.3                     ║
+║ Version: 1.0.6                     ║
 ║                                    ║
 ║ MCP server for LimeSurvey API      ║
 ╚════════════════════════════════════╝

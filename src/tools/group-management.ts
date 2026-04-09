@@ -3,6 +3,7 @@ import { server } from '../server.js';
 import limesurveyAPI from '../services/limesurvey-api.js';
 import { logger } from '../utils/logger.js';
 import { ensureWriteAllowed } from '../utils/readonly-guard.js';
+import { getRc2Status } from '../utils/rc2-status.js';
 
 /**
  * Create an empty question group (for headless survey construction).
@@ -30,6 +31,19 @@ server.tool(
     logger.info('Adding question group', { surveyId, title });
     try {
       const result = await limesurveyAPI.addGroup(surveyId, title, description ?? '');
+      const status = getRc2Status(result);
+
+      if (status) {
+        logger.error('Failed to add group', { surveyId, title, status });
+        return {
+          content: [
+            { type: 'text', text: `Error adding question group: ${status}` },
+            { type: 'text', text: JSON.stringify(result, null, 2) }
+          ],
+          isError: true
+        };
+      }
+
       logger.info('Question group created', { surveyId, result });
       const text =
         typeof result === 'number'
@@ -78,6 +92,19 @@ server.tool(
     logger.warn('Deleting question group', { surveyId, groupId });
     try {
       const result = await limesurveyAPI.deleteGroup(surveyId, groupId);
+      const status = getRc2Status(result);
+
+      if (status) {
+        logger.error('Failed to delete group', { surveyId, groupId, status });
+        return {
+          content: [
+            { type: 'text', text: `Error deleting question group: ${status}` },
+            { type: 'text', text: JSON.stringify(result, null, 2) }
+          ],
+          isError: true
+        };
+      }
+
       logger.info('Question group deleted', { surveyId, groupId, result });
       const text =
         typeof result === 'number'
