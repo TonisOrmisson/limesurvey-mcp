@@ -1,6 +1,25 @@
 import winston from 'winston';
 import path from 'path';
+import { inspect } from 'node:util';
 import { encode } from '@toon-format/toon';
+
+function formatMeta(meta: Record<string, unknown>): string {
+  if (Object.keys(meta).length === 0) {
+    return '';
+  }
+
+  try {
+    return encode(meta);
+  } catch (error) {
+    const fallback = inspect(meta, {
+      depth: 5,
+      breakLength: Infinity,
+      compact: true,
+    });
+    const reason = error instanceof Error ? error.message : String(error);
+    return `[meta encode failed: ${reason}] ${fallback}`;
+  }
+}
 
 // Configure the Winston logger
 const logger = winston.createLogger({
@@ -20,7 +39,8 @@ const logger = winston.createLogger({
       format: winston.format.combine(
         winston.format.colorize(),
         winston.format.printf(({ timestamp, level, message, ...meta }) => {
-          return `${timestamp} ${level}: ${message} ${Object.keys(meta).length ? encode(meta) : ''}`;
+          const renderedMeta = formatMeta(meta);
+          return `${timestamp} ${level}: ${message} ${renderedMeta}`.trimEnd();
         })
       ),
     }),
