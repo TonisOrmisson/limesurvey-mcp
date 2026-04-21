@@ -1,4 +1,5 @@
 import { startServer } from './server.js';
+import { VERSION } from './version.js';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -8,7 +9,7 @@ dotenv.config();
 console.error(`
 ╔════════════════════════════════════╗
 ║ LimeSurvey MCP Server              ║
-║ Version: 1.0.6                     ║
+║ Version: ${VERSION.padEnd(26)}║
 ║                                    ║
 ║ MCP server for LimeSurvey API      ║
 ╚════════════════════════════════════╝

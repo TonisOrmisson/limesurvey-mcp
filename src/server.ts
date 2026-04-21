@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import express, { Request, Response } from "express";
 import dotenv from 'dotenv';
 import limesurveyAPI from './services/limesurvey-api.js';
+import { VERSION } from './version.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -13,13 +14,18 @@ dotenv.config();
 // Check if readonly mode is enabled
 export const isReadOnlyMode = process.env.READONLY_MODE === 'true';
 
+// Gate the HTTP/SSE transport. Default off: stdio clients (e.g. Claude Code)
+// don't need a bound port, and binding unconditionally caused EADDRINUSE on
+// port 3000 whenever a stale instance still held it.
+export const sseEnabled = process.env.ENABLE_SSE === 'true';
+
 // Create an MCP server for LimeSurvey
 export const server = new McpServer({
   name: "LimeSurvey MCP",
-  description: isReadOnlyMode 
-    ? "MCP server that exposes LimeSurvey API read-only functionality" 
+  description: isReadOnlyMode
+    ? "MCP server that exposes LimeSurvey API read-only functionality"
     : "MCP server that exposes LimeSurvey API functionality",
-  version: "1.0.6"
+  version: VERSION
 });
 
 // Determine which transport to use based on environment
@@ -168,32 +174,34 @@ const writeModules = [
 
 
 export async function startServer() {
-  // Create Express app for HTTP transport
-  const app = express();
-  
-  // Add SSE endpoint
-  app.get("/sse", async (_: Request, res: Response) => {
-    console.error("New SSE connection established");
-    const transport = new SSEServerTransport('/messages', res);
-    transports[transport.sessionId] = transport;
-    res.on("close", () => {
-      console.error(`SSE connection closed: ${transport.sessionId}`);
-      delete transports[transport.sessionId];
+  // Only build the Express app when SSE is explicitly enabled. Stdio clients
+  // do not need a bound port, and binding unconditionally caused port-3000
+  // collisions whenever a stale instance was still holding it.
+  const app = sseEnabled ? express() : null;
+
+  if (app) {
+    app.get("/sse", async (_: Request, res: Response) => {
+      console.error("New SSE connection established");
+      const transport = new SSEServerTransport('/messages', res);
+      transports[transport.sessionId] = transport;
+      res.on("close", () => {
+        console.error(`SSE connection closed: ${transport.sessionId}`);
+        delete transports[transport.sessionId];
+      });
+      await server.connect(transport);
     });
-    await server.connect(transport);
-  });
-  
-  // Add messages endpoint for clients to send messages to the server
-  app.post("/messages", async (req: Request, res: Response) => {
-    const sessionId = req.query.sessionId as string;
-    const transport = transports[sessionId];
-    if (transport) {
-      await transport.handlePostMessage(req, res);
-    } else {
-      res.status(400).send('No transport found for sessionId');
-    }
-  });
-  
+
+    app.post("/messages", async (req: Request, res: Response) => {
+      const sessionId = req.query.sessionId as string;
+      const transport = transports[sessionId];
+      if (transport) {
+        await transport.handlePostMessage(req, res);
+      } else {
+        res.status(400).send('No transport found for sessionId');
+      }
+    });
+  }
+
   try {
     // Import tools modules dynamically to avoid circular dependencies
     // This ensures all tools are registered before the server starts
@@ -216,13 +224,14 @@ export async function startServer() {
     await server.connect(stdioTransport);
     
     console.error(`LimeSurvey MCP server running in stdio mode`);
-    
-    // Also start the HTTP server for SSE connections
-    app.listen(port, () => {
-      console.error(`HTTP server with SSE support available at http://localhost:${port}`);
-      console.error(`Connect to /sse for SSE transport`);
-      console.error(`Post to /messages?sessionId=<id> to send messages`);
-    });
+
+    if (app) {
+      app.listen(port, () => {
+        console.error(`HTTP server with SSE support available at http://localhost:${port}`);
+        console.error(`Connect to /sse for SSE transport`);
+        console.error(`Post to /messages?sessionId=<id> to send messages`);
+      });
+    }
   } catch (error: any) {
     console.error('Failed to start MCP server:', error?.message || error);
     process.exit(1);
