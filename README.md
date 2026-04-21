@@ -46,6 +46,7 @@ LIMESURVEY_PASSWORD=your_password
 
 # Server settings
 PORT=3000
+ENABLE_SSE=false
 
 # Optional: run in read‑only mode
 # When true, all write tools short‑circuit and return an error message
@@ -56,6 +57,8 @@ READONLY_MODE=false
 ## Usage
 
 Once the server is running, you can use any MCP client to connect to it and access LimeSurvey functionality.
+
+By default the server starts with `stdio` only. Set `ENABLE_SSE=true` when you need the HTTP/SSE transport on `/sse` and `/messages`, for example when the MCP server runs remotely instead of being spawned locally by the client.
 
 ### Headless survey construction (addSurvey → groups → questions)
 

@@ -21,10 +21,11 @@ services:
       - LIMESURVEY_USERNAME=${LIMESURVEY_USERNAME}
       - LIMESURVEY_PASSWORD=${LIMESURVEY_PASSWORD}
       - PORT=3000
+      - ENABLE_SSE=true
       - READONLY_MODE=${READONLY_MODE:-false}
     # Healthcheck to verify the service is running properly
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/sse"]
       interval: 30s
       timeout: 10s
       retries: 3
